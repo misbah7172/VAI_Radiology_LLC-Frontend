@@ -43,13 +43,10 @@ export default function Board() {
   const handleDragOver = (event: DragOverEvent) => {
     const { over } = event;
     if (!over) return;
-
-    // If dragging over a column container
     const overIdStr = String(over.id);
     if (COLUMNS.some((c) => c.id === overIdStr)) {
       setActiveStatus(overIdStr as TaskStatus);
     } else {
-      // Dragging over a task card — find its column
       const overTask = tasks.find((t) => t.id === Number(overIdStr));
       if (overTask) setActiveStatus(overTask.status);
     }
@@ -58,33 +55,33 @@ export default function Board() {
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveTask(null);
-
     if (!over || !activeStatus) return;
-
     const activeId = Number(active.id);
     const overId = over ? Number(over.id) : null;
-
     await reorderTasks(activeId, overId, activeStatus);
     setActiveStatus(null);
   };
 
   if (isLoading) {
     return (
-      <div className="flex gap-4 h-full px-8 py-6">
+      <div style={{ display: 'flex', gap: '16px', height: '100%', padding: '20px 32px' }}>
         {COLUMNS.map((col) => (
-          <div key={col.id} className="flex-1">
-            <div className="skeleton h-8 w-32 mb-4" />
-            <div className="space-y-3">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="skeleton h-28 w-full rounded-xl" />
-              ))}
-            </div>
+          <div key={col.id} style={{ flex: 1 }}>
+            <div style={{
+              height: '20px', width: '120px', marginBottom: '16px',
+              backgroundColor: '#181822', borderRadius: '6px',
+            }} />
+            {[1, 2, 3].map((i) => (
+              <div key={i} style={{
+                height: '96px', marginBottom: '10px',
+                backgroundColor: '#181822', borderRadius: '10px',
+              }} />
+            ))}
           </div>
         ))}
       </div>
     );
   }
-
 
   return (
     <DndContext
@@ -94,7 +91,14 @@ export default function Board() {
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex gap-4 h-full px-8 py-6 overflow-x-auto">
+      <div style={{
+        display: 'flex',
+        gap: '14px',
+        height: '100%',
+        padding: '20px 32px',
+        overflowX: 'auto',
+        userSelect: 'none',
+      }}>
         {COLUMNS.map((col) => (
           <Column
             key={col.id}

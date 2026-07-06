@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Columns2, ImageIcon, LogOut, Zap } from 'lucide-react';
+import { Columns2, ImageIcon, LogOut, Zap, X } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import toast from 'react-hot-toast';
 
@@ -11,7 +11,12 @@ const navItems = [
   { href: '/annotate', icon: ImageIcon, label: 'Annotate' },
 ];
 
-export default function Sidebar() {
+interface SidebarProps {
+  onClose?: () => void;
+  className?: string;
+}
+
+export default function Sidebar({ onClose, className = '' }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuthStore();
@@ -24,34 +29,50 @@ export default function Sidebar() {
 
   return (
     <aside
-      className="flex flex-col w-64 h-screen sticky top-0 p-4"
+      className={`flex flex-col w-64 h-full p-5 shrink-0 transition-transform duration-300 ${className}`}
       style={{
         background: 'var(--bg-secondary)',
-        borderRight: '1px solid var(--border)',
+        borderRight: '1px solid var(--border-subtle)',
       }}
     >
-      {/* Logo */}
-      <div className="flex items-center gap-3 px-2 mb-8 pt-2">
-        <div
-          className="flex items-center justify-center w-9 h-9 rounded-xl"
-          style={{ background: 'linear-gradient(135deg, #7c3aed, #3b82f6)' }}
-        >
-          <Zap className="w-5 h-5 text-white" />
+      {/* Logo & Close Button */}
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center gap-3">
+          <div
+            className="flex items-center justify-center w-8 h-8 rounded-lg"
+            style={{ background: 'linear-gradient(135deg, #7c3aed, #5b21b6)' }}
+          >
+            <Zap className="w-4 h-4 text-white" />
+          </div>
+          <div>
+            <p className="font-semibold text-sm tracking-tight" style={{ color: 'var(--text-primary)' }}>
+              VAI Radiology
+            </p>
+            <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+              Workspace
+            </p>
+          </div>
         </div>
-        <div>
-          <p className="font-bold text-sm leading-tight" style={{ color: 'var(--text-primary)' }}>
-            VAI Radiology
-          </p>
-          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-            Workspace
-          </p>
-        </div>
+
+        {/* Mobile close button */}
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg md:hidden hover:bg-white/5 transition-colors cursor-pointer"
+            style={{ color: 'var(--text-secondary)' }}
+            aria-label="Close sidebar"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* Navigation */}
       <nav className="flex-1 space-y-1">
-        <p className="text-xs font-semibold uppercase tracking-wider mb-3 px-3"
-          style={{ color: 'var(--text-muted)' }}>
+        <p
+          className="text-[11px] font-semibold uppercase tracking-wider mb-2.5 px-3"
+          style={{ color: 'var(--text-muted)' }}
+        >
           Navigation
         </p>
         {navItems.map(({ href, icon: Icon, label }) => {
@@ -60,58 +81,51 @@ export default function Sidebar() {
             <Link
               key={href}
               href={href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
-                isActive ? 'sidebar-item-active' : 'hover:bg-white/5'
+              onClick={() => onClose?.()}
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-150 cursor-pointer ${
+                isActive ? 'sidebar-item-active' : 'hover:bg-white/[0.04]'
               }`}
               style={{
-                color: isActive ? 'var(--accent-light)' : 'var(--text-secondary)',
+                color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
               }}
             >
               <Icon className="w-4 h-4 flex-shrink-0" />
-              {label}
+              <span>{label}</span>
             </Link>
           );
         })}
       </nav>
 
       {/* User info + logout */}
-      <div
-        className="mt-4 p-3 rounded-xl"
-        style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
-      >
-        <div className="flex items-center gap-2 mb-3">
-          <div
-            className="flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold"
-            style={{ background: 'var(--accent)', color: 'white' }}
+      <div className="mt-auto">
+        <div className="h-px mb-4" style={{ background: 'var(--border)' }} />
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div
+              className="flex items-center justify-center w-9 h-9 rounded-lg text-xs font-bold shrink-0 border border-white/10"
+              style={{ background: 'var(--accent)', color: 'white' }}
+            >
+              {user?.email?.charAt(0).toUpperCase() ?? 'U'}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium truncate" style={{ color: 'var(--text-primary)' }}>
+                {user?.full_name || user?.email?.split('@')[0]}
+              </p>
+              <p className="text-[11px] truncate" style={{ color: 'var(--text-muted)' }}>
+                {user?.email}
+              </p>
+            </div>
+          </div>
+          <button
+            id="logout-btn"
+            onClick={handleLogout}
+            className="p-1.5 rounded-lg transition-colors duration-150 hover:bg-white/5 cursor-pointer shrink-0"
+            style={{ color: 'var(--text-muted)' }}
+            title="Sign out"
           >
-            {user?.email?.charAt(0).toUpperCase() ?? 'U'}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium truncate" style={{ color: 'var(--text-primary)' }}>
-              {user?.full_name || user?.email}
-            </p>
-            <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
-              {user?.email}
-            </p>
-          </div>
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
-        <button
-          id="logout-btn"
-          onClick={handleLogout}
-          className="flex items-center gap-2 w-full px-2 py-1.5 rounded-lg text-xs transition-colors duration-200"
-          style={{ color: 'var(--text-muted)' }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.color = 'var(--danger)';
-            (e.currentTarget as HTMLButtonElement).style.background = 'rgba(239,68,68,0.08)';
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-muted)';
-            (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
-          }}
-        >
-          <LogOut className="w-3.5 h-3.5" />
-          Sign out
-        </button>
       </div>
     </aside>
   );

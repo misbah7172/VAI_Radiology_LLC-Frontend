@@ -16,20 +16,20 @@ export default function AnnotatePageClient() {
   }, []);
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
       <div
-        className="flex items-center justify-between px-8 py-5 flex-shrink-0"
+        className="flex flex-col sm:flex-row sm:items-center justify-between px-4 py-4 sm:px-8 sm:py-5 gap-4 flex-shrink-0"
         style={{
           borderBottom: '1px solid var(--border)',
           background: 'var(--bg-secondary)',
         }}
       >
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+          <h1 className="text-xl sm:text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
             Image Annotation
           </h1>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-xs sm:text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
             Draw polygons to annotate your images
           </p>
         </div>
@@ -62,27 +62,25 @@ export default function AnnotatePageClient() {
           </div>
         </div>
       ) : (
-        <div className="flex flex-1 overflow-hidden">
-          {/* Left: carousel */}
+        <div className="flex flex-col lg:flex-row flex-1 overflow-hidden min-h-0">
+          {/* Top/Left: carousel */}
           <div
-            className="w-48 flex-shrink-0 overflow-hidden"
-            style={{ borderRight: '1px solid var(--border)' }}
+            className="w-full lg:w-48 h-28 lg:h-full shrink-0 overflow-hidden border-b lg:border-b-0 lg:border-r border-border"
           >
             <ImageCarousel />
           </div>
 
           {/* Center: canvas */}
-          <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 flex flex-col overflow-hidden min-h-0">
             <AnnotationToolbar />
-            <div className="flex-1 overflow-hidden relative">
+            <div className="flex-1 overflow-hidden relative min-h-[300px] lg:min-h-0 bg-black">
               <AnnotationCanvas />
             </div>
           </div>
 
-          {/* Right: annotation list */}
+          {/* Bottom/Right: annotation list */}
           <div
-            className="w-72 flex-shrink-0 overflow-hidden"
-            style={{ borderLeft: '1px solid var(--border)' }}
+            className="w-full lg:w-72 h-64 lg:h-full shrink-0 overflow-hidden border-t lg:border-t-0 lg:border-l border-border"
           >
             <AnnotationList />
           </div>

@@ -20,36 +20,70 @@ export default function Column({ id, label, color, tasks, isOver }: ColumnProps)
   return (
     <div
       ref={setNodeRef}
-      className={`flex flex-col flex-1 min-w-[280px] max-w-[360px] h-full transition-all duration-300 ${isOver ? 'kanban-column-over' : 'kanban-column'}`}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+        minWidth: '280px',
+        maxWidth: '360px',
+        height: '100%',
+        backgroundColor: isOver ? '#16162a' : '#111116',
+        border: `1px solid ${isOver ? '#7c3aed40' : '#1a1a26'}`,
+        borderRadius: '12px',
+        boxShadow: isOver
+          ? '0 0 0 1px rgba(124,58,237,0.2), 0 4px 20px -4px rgba(0,0,0,0.5)'
+          : '0 4px 20px -4px rgba(0,0,0,0.5)',
+        transition: 'all 0.2s ease',
+      }}
     >
       {/* Column header */}
-      <div className="flex items-center justify-between px-4 py-4">
-        <div className="flex items-center gap-2.5">
-          <div
-            className="w-2.5 h-2.5 rounded-full"
-            style={{ background: color, boxShadow: `0 0 8px ${color}66` }}
-          />
-          <h2 className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '14px 16px',
+        borderBottom: '1px solid #1a1a26',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{
+            width: '8px',
+            height: '8px',
+            borderRadius: '50%',
+            background: color,
+            boxShadow: `0 0 6px ${color}60`,
+          }} />
+          <h2 style={{
+            fontSize: '14px',
+            fontWeight: 600,
+            letterSpacing: '-0.01em',
+            color: '#f4f4f7',
+            margin: 0,
+          }}>
             {label}
           </h2>
         </div>
-        <span
-          className="text-xs font-bold px-2 py-0.5 rounded-full"
-          style={{
-            background: `${color}18`,
-            color: color,
-            border: `1px solid ${color}33`,
-          }}
-        >
+        <span style={{
+          fontSize: '11px',
+          fontWeight: 600,
+          padding: '2px 8px',
+          borderRadius: '20px',
+          backgroundColor: 'rgba(255,255,255,0.04)',
+          color: '#63637e',
+          border: '1px solid rgba(255,255,255,0.03)',
+        }}>
           {tasks.length}
         </span>
       </div>
 
-      {/* Divider */}
-      <div style={{ height: '1px', background: 'var(--border)', marginBottom: '12px' }} />
-
       {/* Task list */}
-      <div className="flex-1 px-3 pb-4 overflow-y-auto space-y-2.5">
+      <div style={{
+        flex: 1,
+        padding: '10px 10px 14px',
+        overflowY: 'auto',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '6px',
+      }}>
         <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
           {tasks.map((task) => (
             <TaskCard key={task.id} task={task} />
@@ -57,16 +91,23 @@ export default function Column({ id, label, color, tasks, isOver }: ColumnProps)
         </SortableContext>
 
         {tasks.length === 0 && (
-          <div
-            className="flex flex-col items-center justify-center py-12 rounded-xl"
-            style={{
-              border: '1px dashed var(--border)',
-              background: 'transparent',
-            }}
-          >
-            <ClipboardList className="w-8 h-8 mb-2" style={{ color: 'var(--text-muted)' }} />
-            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-              No tasks here
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '28px 16px',
+            borderRadius: '10px',
+            border: '1px dashed rgba(255,255,255,0.05)',
+            backgroundColor: 'rgba(255,255,255,0.01)',
+            marginTop: '4px',
+          }}>
+            <ClipboardList style={{ width: '20px', height: '20px', color: '#3d3d55', marginBottom: '8px' }} />
+            <p style={{ fontSize: '12px', fontWeight: 500, color: '#4a4a6a', textAlign: 'center', margin: 0 }}>
+              No tasks yet
+            </p>
+            <p style={{ fontSize: '11px', color: '#3d3d55', textAlign: 'center', marginTop: '3px' }}>
+              Add a task to get started
             </p>
           </div>
         )}

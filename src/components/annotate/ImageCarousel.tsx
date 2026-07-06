@@ -19,23 +19,24 @@ export default function ImageCarousel() {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto p-3 gap-2"
+    <div className="flex flex-row lg:flex-col h-full overflow-x-auto lg:overflow-y-auto p-3 gap-3"
       style={{ background: 'var(--bg-secondary)' }}>
-      <p className="text-xs font-semibold uppercase tracking-wider px-1 py-2"
-        style={{ color: 'var(--text-muted)' }}>
-        Images ({images.length})
-      </p>
+      <div className="hidden lg:block shrink-0 px-1 py-1">
+        <p className="text-xs font-semibold uppercase tracking-wider"
+          style={{ color: 'var(--text-muted)' }}>
+          Images ({images.length})
+        </p>
+      </div>
       {images.map((img, idx) => (
         <div
           key={img.id}
           id={`image-thumb-${img.id}`}
           onClick={() => setActiveImageIndex(idx)}
-          className="group relative rounded-xl overflow-hidden cursor-pointer transition-all duration-200 flex-shrink-0"
+          className="group relative rounded-xl overflow-hidden cursor-pointer transition-all duration-200 shrink-0 w-24 h-16 lg:w-full lg:h-24"
           style={{
             border: idx === activeImageIndex
               ? '2px solid var(--accent-light)'
               : '2px solid var(--border)',
-            height: '100px',
             background: 'var(--bg-card)',
           }}
         >
@@ -58,7 +59,7 @@ export default function ImageCarousel() {
           <button
             id={`delete-image-${img.id}`}
             onClick={(e) => handleDelete(e, img.id)}
-            className="absolute top-1.5 right-1.5 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+            className="absolute top-1 right-1 p-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200"
             style={{ background: 'rgba(239,68,68,0.9)', color: 'white' }}
             title="Delete image"
           >
@@ -68,7 +69,7 @@ export default function ImageCarousel() {
           {/* Annotation count badge */}
           {img.annotations.length > 0 && (
             <div
-              className="absolute bottom-1.5 left-1.5 text-xs font-bold px-1.5 py-0.5 rounded-full"
+              className="absolute bottom-1 left-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full"
               style={{ background: 'var(--accent)', color: 'white' }}
             >
               {img.annotations.length}
@@ -77,7 +78,7 @@ export default function ImageCarousel() {
 
           {/* Filename tooltip */}
           <div
-            className="absolute bottom-0 left-0 right-0 px-2 py-1 text-xs truncate opacity-0 group-hover:opacity-100 transition-opacity"
+            className="absolute bottom-0 left-0 right-0 px-2 py-0.5 text-[10px] truncate opacity-0 group-hover:opacity-100 transition-opacity"
             style={{ background: 'rgba(0,0,0,0.8)', color: 'white' }}
           >
             {img.filename}

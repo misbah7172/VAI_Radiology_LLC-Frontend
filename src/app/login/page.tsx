@@ -2,39 +2,61 @@ import type { Metadata } from 'next';
 import LoginForm from '@/components/auth/LoginForm';
 
 export const metadata: Metadata = {
-  title: 'Login — VAI Radiology',
-  description: 'Sign in to your VAI Radiology account',
+  title: 'Sign In — VAI Radiology',
+  description: 'Sign in to your VAI Radiology AI diagnostic workspace',
 };
 
 export default function LoginPage() {
   return (
-    <main className="min-h-screen flex items-center justify-center relative overflow-hidden"
-      style={{ background: 'var(--bg-primary)' }}>
-      {/* Animated background orbs */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div
-          className="absolute rounded-full blur-3xl opacity-20 animate-pulse"
-          style={{
-            width: '600px',
-            height: '600px',
-            background: 'radial-gradient(circle, #7c3aed, transparent)',
-            top: '-100px',
-            right: '-100px',
-          }}
-        />
-        <div
-          className="absolute rounded-full blur-3xl opacity-10"
-          style={{
-            width: '400px',
-            height: '400px',
-            background: 'radial-gradient(circle, #3b82f6, transparent)',
-            bottom: '-50px',
-            left: '-50px',
-          }}
-        />
-      </div>
+    <main
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        position: 'relative',
+        overflow: 'hidden',
+        padding: '24px 16px',
+        backgroundColor: '#08080c',
+      }}
+    >
+      {/* Background glow — top right purple */}
+      <div style={{
+        position: 'absolute',
+        top: '-200px',
+        right: '-200px',
+        width: '700px',
+        height: '700px',
+        borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(124,58,237,0.3) 0%, transparent 70%)',
+        filter: 'blur(80px)',
+        pointerEvents: 'none',
+      }} />
 
-      <div className="relative z-10 w-full max-w-md px-4">
+      {/* Background glow — bottom left indigo */}
+      <div style={{
+        position: 'absolute',
+        bottom: '-150px',
+        left: '-150px',
+        width: '500px',
+        height: '500px',
+        borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(79,70,229,0.15) 0%, transparent 70%)',
+        filter: 'blur(80px)',
+        pointerEvents: 'none',
+      }} />
+
+      {/* Subtle dot grid overlay */}
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.04) 1px, transparent 1px)',
+        backgroundSize: '28px 28px',
+        pointerEvents: 'none',
+      }} />
+
+      {/* Centered form */}
+      <div style={{ position: 'relative', zIndex: 10, width: '100%' }}>
         <LoginForm />
       </div>
     </main>

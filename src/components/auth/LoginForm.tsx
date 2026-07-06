@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Eye, EyeOff, Loader2, Zap } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Zap, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -14,6 +14,7 @@ export default function LoginForm() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const validate = () => {
     const newErrors: { email?: string; password?: string } = {};
@@ -28,10 +29,9 @@ export default function LoginForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
-
     try {
       await login(email, password);
-      toast.success('Welcome back! 🎉');
+      toast.success('Welcome back!');
       router.push('/tasks');
     } catch (err: any) {
       const msg =
@@ -42,34 +42,75 @@ export default function LoginForm() {
     }
   };
 
+  const inputStyle = (field: string, hasError: boolean): React.CSSProperties => ({
+    display: 'block',
+    width: '100%',
+    padding: '11px 14px',
+    fontSize: '14px',
+    fontFamily: 'inherit',
+    color: '#f4f4f7',
+    backgroundColor: '#111116',
+    border: `1px solid ${hasError ? '#ef4444' : focusedField === field ? '#a78bfa' : '#232332'}`,
+    borderRadius: '10px',
+    outline: 'none',
+    boxShadow: focusedField === field && !hasError ? '0 0 0 3px rgba(124,58,237,0.12)' : 'none',
+    transition: 'border-color 0.18s ease, box-shadow 0.18s ease',
+    WebkitAppearance: 'none',
+  });
+
   return (
-    <div className="animate-fade-in-up">
-      {/* Logo/Brand */}
-      <div className="text-center mb-10">
-        <div
-          className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 animate-pulse-glow"
-          style={{ background: 'linear-gradient(135deg, #7c3aed, #3b82f6)' }}
-        >
-          <Zap className="w-8 h-8 text-white" />
+    <div className="animate-fade-in-up" style={{ width: '100%', maxWidth: '380px', margin: '0 auto' }}>
+
+      {/* Brand Header */}
+      <div style={{ textAlign: 'center', marginBottom: '36px' }}>
+        <div style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: '56px',
+          height: '56px',
+          borderRadius: '16px',
+          background: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)',
+          marginBottom: '20px',
+          boxShadow: '0 8px 32px -8px rgba(124,58,237,0.5)',
+        }}>
+          <Zap style={{ width: '28px', height: '28px', color: 'white' }} />
         </div>
-        <h1 className="text-3xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
+        <h1 style={{
+          fontSize: '24px',
+          fontWeight: 700,
+          letterSpacing: '-0.025em',
+          color: '#f4f4f7',
+          marginBottom: '6px',
+        }}>
           VAI Radiology
         </h1>
-        <p className="mt-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
+        <p style={{ fontSize: '14px', color: '#63637e' }}>
           Sign in to your workspace
         </p>
       </div>
 
       {/* Card */}
-      <div className="glass-card p-8">
+      <div style={{
+        background: '#181822',
+        border: '1px solid #232332',
+        borderRadius: '20px',
+        padding: '32px',
+        boxShadow: '0 24px 64px -12px rgba(0,0,0,0.85), 0 1px 0 rgba(255,255,255,0.04) inset',
+      }}>
         <form onSubmit={handleSubmit} noValidate>
+
           {/* Email */}
-          <div className="mb-5">
-            <label
-              htmlFor="email"
-              className="block text-sm font-medium mb-2"
-              style={{ color: 'var(--text-secondary)' }}
-            >
+          <div style={{ marginBottom: '20px' }}>
+            <label htmlFor="email" style={{
+              display: 'block',
+              fontSize: '11px',
+              fontWeight: 600,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              color: '#63637e',
+              marginBottom: '8px',
+            }}>
               Email address
             </label>
             <input
@@ -79,41 +120,34 @@ export default function LoginForm() {
               value={email}
               onChange={(e) => {
                 setEmail(e.target.value);
-                if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
+                if (errors.email) setErrors((p) => ({ ...p, email: undefined }));
               }}
-              placeholder="demo@vai.com"
-              className="w-full px-4 py-3 rounded-xl text-sm transition-all duration-200"
-              style={{
-                background: 'var(--bg-primary)',
-                border: `1px solid ${errors.email ? 'var(--danger)' : 'var(--border)'}`,
-                color: 'var(--text-primary)',
-                outline: 'none',
-              }}
-              onFocus={(e) => {
-                if (!errors.email)
-                  e.target.style.borderColor = 'var(--accent-light)';
-              }}
-              onBlur={(e) => {
-                if (!errors.email) e.target.style.borderColor = 'var(--border)';
-              }}
+              onFocus={() => setFocusedField('email')}
+              onBlur={() => setFocusedField(null)}
+              placeholder="you@example.com"
+              style={inputStyle('email', !!errors.email)}
             />
             {errors.email && (
-              <p className="mt-1.5 text-xs" style={{ color: 'var(--danger)' }}>
+              <p style={{ marginTop: '6px', fontSize: '11px', color: '#ef4444', fontWeight: 500 }}>
                 {errors.email}
               </p>
             )}
           </div>
 
           {/* Password */}
-          <div className="mb-7">
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium mb-2"
-              style={{ color: 'var(--text-secondary)' }}
-            >
+          <div style={{ marginBottom: '28px' }}>
+            <label htmlFor="password" style={{
+              display: 'block',
+              fontSize: '11px',
+              fontWeight: 600,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              color: '#63637e',
+              marginBottom: '8px',
+            }}>
               Password
             </label>
-            <div className="relative">
+            <div style={{ position: 'relative' }}>
               <input
                 id="password"
                 type={showPassword ? 'text' : 'password'}
@@ -121,36 +155,36 @@ export default function LoginForm() {
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);
-                  if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }));
+                  if (errors.password) setErrors((p) => ({ ...p, password: undefined }));
                 }}
+                onFocus={() => setFocusedField('password')}
+                onBlur={() => setFocusedField(null)}
                 placeholder="••••••••"
-                className="w-full px-4 py-3 pr-12 rounded-xl text-sm transition-all duration-200"
-                style={{
-                  background: 'var(--bg-primary)',
-                  border: `1px solid ${errors.password ? 'var(--danger)' : 'var(--border)'}`,
-                  color: 'var(--text-primary)',
-                  outline: 'none',
-                }}
-                onFocus={(e) => {
-                  if (!errors.password)
-                    e.target.style.borderColor = 'var(--accent-light)';
-                }}
-                onBlur={(e) => {
-                  if (!errors.password) e.target.style.borderColor = 'var(--border)';
-                }}
+                style={{ ...inputStyle('password', !!errors.password), paddingRight: '44px' }}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-lg transition-colors"
-                style={{ color: 'var(--text-muted)' }}
+                style={{
+                  position: 'absolute',
+                  right: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  padding: '4px',
+                  cursor: 'pointer',
+                  color: '#63637e',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {showPassword ? <EyeOff style={{ width: '16px', height: '16px' }} /> : <Eye style={{ width: '16px', height: '16px' }} />}
               </button>
             </div>
             {errors.password && (
-              <p className="mt-1.5 text-xs" style={{ color: 'var(--danger)' }}>
+              <p style={{ marginTop: '6px', fontSize: '11px', color: '#ef4444', fontWeight: 500 }}>
                 {errors.password}
               </p>
             )}
@@ -161,37 +195,67 @@ export default function LoginForm() {
             id="login-submit"
             type="submit"
             disabled={isLoading}
-            className="w-full py-3.5 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
             style={{
-              background: 'linear-gradient(135deg, #7c3aed, #5b21b6)',
-              color: 'white',
-              boxShadow: '0 4px 20px rgba(124, 58, 237, 0.4)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              width: '100%',
+              padding: '13px 24px',
+              fontSize: '14px',
+              fontWeight: 600,
+              fontFamily: 'inherit',
+              color: '#ffffff',
+              background: isLoading
+                ? 'rgba(124,58,237,0.6)'
+                : 'linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)',
+              border: 'none',
+              borderRadius: '10px',
+              cursor: isLoading ? 'not-allowed' : 'pointer',
+              boxShadow: '0 4px 20px -4px rgba(124,58,237,0.5)',
+              transition: 'all 0.2s ease',
+              opacity: isLoading ? 0.7 : 1,
             }}
           >
             {isLoading ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 style={{ width: '16px', height: '16px', animation: 'spin 1s linear infinite' }} />
                 Signing in…
               </>
             ) : (
-              'Sign in'
+              <>
+                Sign in
+                <ArrowRight style={{ width: '16px', height: '16px' }} />
+              </>
             )}
           </button>
         </form>
 
-        {/* Demo credentials hint */}
-        <div
-          className="mt-6 p-3.5 rounded-xl text-center text-xs"
-          style={{
-            background: 'var(--bg-primary)',
-            border: '1px solid var(--border-subtle)',
-            color: 'var(--text-muted)',
-          }}
-        >
-          Demo: <span style={{ color: 'var(--accent-light)' }}>demo@vai.com</span> /{' '}
-          <span style={{ color: 'var(--accent-light)' }}>demo1234</span>
+        {/* Demo hint */}
+        <div style={{
+          marginTop: '20px',
+          padding: '12px 16px',
+          borderRadius: '10px',
+          background: 'rgba(124,58,237,0.06)',
+          border: '1px solid rgba(124,58,237,0.14)',
+          textAlign: 'center',
+        }}>
+          <p style={{ fontSize: '11px', color: '#63637e', marginBottom: '2px' }}>Demo credentials</p>
+          <p style={{ fontSize: '12px', fontFamily: 'monospace', color: '#a78bfa', fontWeight: 500 }}>
+            demo@vai.com · demo1234
+          </p>
         </div>
       </div>
+
+      {/* Footer */}
+      <p style={{
+        textAlign: 'center',
+        fontSize: '11px',
+        color: '#3d3d55',
+        marginTop: '24px',
+      }}>
+        VAI Radiology LLC · AI-Assisted Diagnostic Platform
+      </p>
     </div>
   );
 }

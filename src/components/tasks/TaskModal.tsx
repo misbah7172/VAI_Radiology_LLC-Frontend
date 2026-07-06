@@ -19,10 +19,10 @@ const STATUSES: { value: TaskStatus; label: string }[] = [
   { value: 'done', label: 'Done' },
 ];
 
-const PRIORITIES: { value: TaskPriority; label: string; color: string }[] = [
-  { value: 'low', label: 'Low', color: '#6ee7b7' },
-  { value: 'medium', label: 'Medium', color: '#fcd34d' },
-  { value: 'high', label: 'High', color: '#f87171' },
+const PRIORITIES: { value: TaskPriority; label: string }[] = [
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
 ];
 
 export default function TaskModal({ mode, task, onClose }: TaskModalProps) {
@@ -32,28 +32,24 @@ export default function TaskModal({ mode, task, onClose }: TaskModalProps) {
   const [description, setDescription] = useState(task?.description ?? '');
   const [status, setStatus] = useState<TaskStatus>(task?.status ?? 'todo');
   const [priority, setPriority] = useState<TaskPriority>(task?.priority ?? 'medium');
-  const [dueDate, setDueDate] = useState(
-    task?.due_date ?? format(selectedDate, 'yyyy-MM-dd')
-  );
+  const [dueDate, setDueDate] = useState(task?.due_date ?? format(selectedDate, 'yyyy-MM-dd'));
   const [tags, setTags] = useState<string[]>(task?.tags ?? []);
   const [tagInput, setTagInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [closeHovered, setCloseHovered] = useState(false);
+  const [addTagHovered, setAddTagHovered] = useState(false);
 
-  // Close on ESC
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [onClose]);
 
   const addTag = () => {
     const trimmed = tagInput.trim();
-    if (trimmed && !tags.includes(trimmed)) {
-      setTags((prev) => [...prev, trimmed]);
-    }
+    if (trimmed && !tags.includes(trimmed)) setTags((prev) => [...prev, trimmed]);
     setTagInput('');
   };
 
@@ -61,14 +57,9 @@ export default function TaskModal({ mode, task, onClose }: TaskModalProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) {
-      setError('Title is required');
-      return;
-    }
-
+    if (!title.trim()) { setError('Title is required'); return; }
     setIsSubmitting(true);
     setError('');
-
     try {
       if (mode === 'create') {
         await createTask({ title: title.trim(), description, status, priority, due_date: dueDate, tags });
@@ -85,116 +76,152 @@ export default function TaskModal({ mode, task, onClose }: TaskModalProps) {
     }
   };
 
+  const inputStyle = (field: string, hasError = false): React.CSSProperties => ({
+    display: 'block',
+    width: '100%',
+    padding: '9px 12px',
+    fontSize: '13px',
+    fontFamily: 'inherit',
+    color: '#f4f4f7',
+    backgroundColor: '#111116',
+    border: `1px solid ${hasError ? '#ef4444' : focusedField === field ? '#7c6fcd' : '#232332'}`,
+    borderRadius: '8px',
+    outline: 'none',
+    boxShadow: focusedField === field && !hasError ? '0 0 0 2px rgba(124,58,237,0.12)' : 'none',
+    transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+    boxSizing: 'border-box',
+  });
+
+  const labelStyle: React.CSSProperties = {
+    display: 'block',
+    fontSize: '10px',
+    fontWeight: 600,
+    letterSpacing: '0.08em',
+    textTransform: 'uppercase',
+    color: '#63637e',
+    marginBottom: '6px',
+  };
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
-      style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 50,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '16px',
+        backgroundColor: 'rgba(0,0,0,0.72)',
+        backdropFilter: 'blur(6px)',
+      }}
+      className="animate-fade-in"
     >
       <div
-        className="glass-card w-full max-w-lg animate-fade-in-up"
         onClick={(e) => e.stopPropagation()}
+        className="animate-fade-in-up"
+        style={{
+          width: '100%',
+          maxWidth: '480px',
+          backgroundColor: '#181822',
+          border: '1px solid #232332',
+          borderRadius: '16px',
+          boxShadow: '0 24px 64px -12px rgba(0,0,0,0.85), 0 1px 0 rgba(255,255,255,0.04) inset',
+        }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: '1px solid var(--border)' }}>
-          <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
-            {mode === 'create' ? '✨ New Task' : '✏️ Edit Task'}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '18px 24px',
+          borderBottom: '1px solid #1e1e2e',
+        }}>
+          <h2 style={{ fontSize: '14px', fontWeight: 600, color: '#f4f4f7', margin: 0 }}>
+            {mode === 'create' ? 'Create New Task' : 'Edit Task'}
           </h2>
           <button
             id="close-task-modal"
             onClick={onClose}
-            className="p-2 rounded-xl transition-colors"
-            style={{ color: 'var(--text-muted)' }}
+            onMouseEnter={() => setCloseHovered(true)}
+            onMouseLeave={() => setCloseHovered(false)}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: '28px', height: '28px',
+              borderRadius: '6px',
+              border: 'none',
+              backgroundColor: closeHovered ? 'rgba(255,255,255,0.06)' : 'transparent',
+              color: closeHovered ? '#c4c4d8' : '#63637e',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
           >
-            <X className="w-5 h-5" />
+            <X style={{ width: '15px', height: '15px' }} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+        <form onSubmit={handleSubmit} style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {/* Title */}
           <div>
-            <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
-              Title *
-            </label>
+            <label style={labelStyle}>Title *</label>
             <input
               id="task-title-input"
               type="text"
               value={title}
               onChange={(e) => { setTitle(e.target.value); setError(''); }}
-              placeholder="What needs to be done?"
-              className="w-full px-4 py-2.5 rounded-xl text-sm"
-              style={{
-                background: 'var(--bg-primary)',
-                border: `1px solid ${error ? 'var(--danger)' : 'var(--border)'}`,
-                color: 'var(--text-primary)',
-                outline: 'none',
-              }}
+              onFocus={() => setFocusedField('title')}
+              onBlur={() => setFocusedField(null)}
+              placeholder="e.g. Review radiology report"
+              style={inputStyle('title', !!error)}
             />
-            {error && <p className="mt-1 text-xs" style={{ color: 'var(--danger)' }}>{error}</p>}
+            {error && <p style={{ marginTop: '4px', fontSize: '11px', color: '#ef4444' }}>{error}</p>}
           </div>
 
           {/* Description */}
           <div>
-            <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
-              Description
-            </label>
+            <label style={labelStyle}>Description</label>
             <textarea
               id="task-desc-input"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Add more details…"
+              onFocus={() => setFocusedField('desc')}
+              onBlur={() => setFocusedField(null)}
+              placeholder="Add details about this task..."
               rows={3}
-              className="w-full px-4 py-2.5 rounded-xl text-sm resize-none"
-              style={{
-                background: 'var(--bg-primary)',
-                border: '1px solid var(--border)',
-                color: 'var(--text-primary)',
-                outline: 'none',
-              }}
+              style={{ ...inputStyle('desc'), resize: 'none', lineHeight: 1.5 }}
             />
           </div>
 
           {/* Status + Priority */}
-          <div className="grid grid-cols-2 gap-4">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <div>
-              <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
-                Status
-              </label>
+              <label style={labelStyle}>Status</label>
               <select
                 id="task-status-select"
                 value={status}
                 onChange={(e) => setStatus(e.target.value as TaskStatus)}
-                className="w-full px-3 py-2.5 rounded-xl text-sm"
-                style={{
-                  background: 'var(--bg-primary)',
-                  border: '1px solid var(--border)',
-                  color: 'var(--text-primary)',
-                  outline: 'none',
-                }}
+                onFocus={() => setFocusedField('status')}
+                onBlur={() => setFocusedField(null)}
+                style={inputStyle('status')}
               >
                 {STATUSES.map((s) => (
-                  <option key={s.value} value={s.value}>{s.label}</option>
+                  <option key={s.value} value={s.value} style={{ background: '#111116' }}>{s.label}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
-                Priority
-              </label>
+              <label style={labelStyle}>Priority</label>
               <select
                 id="task-priority-select"
                 value={priority}
                 onChange={(e) => setPriority(e.target.value as TaskPriority)}
-                className="w-full px-3 py-2.5 rounded-xl text-sm"
-                style={{
-                  background: 'var(--bg-primary)',
-                  border: '1px solid var(--border)',
-                  color: 'var(--text-primary)',
-                  outline: 'none',
-                }}
+                onFocus={() => setFocusedField('priority')}
+                onBlur={() => setFocusedField(null)}
+                style={inputStyle('priority')}
               >
                 {PRIORITIES.map((p) => (
-                  <option key={p.value} value={p.value}>{p.label}</option>
+                  <option key={p.value} value={p.value} style={{ background: '#111116' }}>{p.label}</option>
                 ))}
               </select>
             </div>
@@ -202,75 +229,76 @@ export default function TaskModal({ mode, task, onClose }: TaskModalProps) {
 
           {/* Due Date */}
           <div>
-            <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
-              Due Date
-            </label>
+            <label style={labelStyle}>Due Date</label>
             <input
               id="task-date-input"
               type="date"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl text-sm"
-              style={{
-                background: 'var(--bg-primary)',
-                border: '1px solid var(--border)',
-                color: 'var(--text-primary)',
-                outline: 'none',
-                colorScheme: 'dark',
-              }}
+              onFocus={() => setFocusedField('date')}
+              onBlur={() => setFocusedField(null)}
+              style={{ ...inputStyle('date'), colorScheme: 'dark' } as React.CSSProperties}
             />
           </div>
 
           {/* Tags */}
           <div>
-            <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
-              Tags
-            </label>
-            <div className="flex gap-2 mb-2">
+            <label style={labelStyle}>Tags</label>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
               <input
                 id="task-tag-input"
                 type="text"
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTag(); } }}
-                placeholder="Add a tag…"
-                className="flex-1 px-3 py-2 rounded-xl text-sm"
-                style={{
-                  background: 'var(--bg-primary)',
-                  border: '1px solid var(--border)',
-                  color: 'var(--text-primary)',
-                  outline: 'none',
-                }}
+                onFocus={() => setFocusedField('tag')}
+                onBlur={() => setFocusedField(null)}
+                placeholder="Type tag and press Enter"
+                style={{ ...inputStyle('tag'), flex: 1 }}
               />
               <button
                 type="button"
                 onClick={addTag}
-                className="px-3 py-2 rounded-xl text-sm transition-colors"
+                onMouseEnter={() => setAddTagHovered(true)}
+                onMouseLeave={() => setAddTagHovered(false)}
                 style={{
-                  background: 'var(--accent)',
-                  color: 'white',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: '38px', height: '38px',
+                  borderRadius: '8px',
+                  border: '1px solid #232332',
+                  backgroundColor: addTagHovered ? '#232332' : '#181822',
+                  color: addTagHovered ? '#c4c4d8' : '#63637e',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                  transition: 'all 0.15s ease',
                 }}
               >
-                <Plus className="w-4 h-4" />
+                <Plus style={{ width: '15px', height: '15px' }} />
               </button>
             </div>
             {tags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                 {tags.map((tag) => (
                   <span
                     key={tag}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs cursor-pointer"
-                    style={{
-                      background: 'rgba(124,58,237,0.15)',
-                      color: 'var(--accent-light)',
-                      border: '1px solid rgba(124,58,237,0.3)',
-                    }}
                     onClick={() => removeTag(tag)}
                     title="Click to remove"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '3px 10px',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      backgroundColor: '#111116',
+                      color: '#8888a8',
+                      border: '1px solid #232332',
+                      cursor: 'pointer',
+                    }}
                   >
-                    <Tag className="w-3 h-3" />
+                    <Tag style={{ width: '10px', height: '10px', color: '#5a5a7a' }} />
                     {tag}
-                    <X className="w-3 h-3 opacity-60" />
+                    <X style={{ width: '10px', height: '10px', opacity: 0.5 }} />
                   </span>
                 ))}
               </div>
@@ -278,15 +306,22 @@ export default function TaskModal({ mode, task, onClose }: TaskModalProps) {
           </div>
 
           {/* Actions */}
-          <div className="flex gap-3 pt-2">
+          <div style={{ display: 'flex', gap: '10px', paddingTop: '4px' }}>
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2.5 rounded-xl text-sm font-medium transition-colors"
               style={{
-                background: 'var(--bg-primary)',
-                border: '1px solid var(--border)',
-                color: 'var(--text-secondary)',
+                flex: 1,
+                padding: '9px',
+                borderRadius: '8px',
+                border: '1px solid #232332',
+                backgroundColor: '#111116',
+                color: '#a0a0b2',
+                fontSize: '13px',
+                fontWeight: 600,
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
               }}
             >
               Cancel
@@ -295,13 +330,27 @@ export default function TaskModal({ mode, task, onClose }: TaskModalProps) {
               id="submit-task-btn"
               type="submit"
               disabled={isSubmitting}
-              className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 disabled:opacity-60"
               style={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '7px',
+                padding: '9px',
+                borderRadius: '8px',
+                border: 'none',
                 background: 'linear-gradient(135deg, #7c3aed, #5b21b6)',
-                color: 'white',
+                color: '#ffffff',
+                fontSize: '13px',
+                fontWeight: 600,
+                fontFamily: 'inherit',
+                cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                opacity: isSubmitting ? 0.7 : 1,
+                boxShadow: '0 4px 14px -4px rgba(124,58,237,0.4)',
+                transition: 'all 0.15s ease',
               }}
             >
-              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+              {isSubmitting ? <Loader2 style={{ width: '14px', height: '14px', animation: 'spin 1s linear infinite' }} /> : null}
               {mode === 'create' ? 'Create Task' : 'Save Changes'}
             </button>
           </div>
