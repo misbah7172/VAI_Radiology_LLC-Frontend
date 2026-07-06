@@ -1,0 +1,101 @@
+// ─── Auth ────────────────────────────────────────────────────────────────────
+
+export interface User {
+  id: number;
+  email: string;
+  full_name: string;
+  date_joined: string;
+}
+
+export interface AuthTokens {
+  access: string;
+  refresh: string;
+}
+
+export interface LoginResponse extends AuthTokens {
+  user: User;
+}
+
+// ─── Tasks ───────────────────────────────────────────────────────────────────
+
+export type TaskStatus = 'todo' | 'in_progress' | 'done';
+export type TaskPriority = 'low' | 'medium' | 'high';
+
+export interface Task {
+  id: number;
+  title: string;
+  description: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  due_date: string; // YYYY-MM-DD
+  tags: string[];
+  position: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TaskCreate {
+  title: string;
+  description?: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  due_date: string;
+  tags?: string[];
+  position?: number;
+}
+
+export interface TaskUpdate extends Partial<TaskCreate> {}
+
+export interface ReorderPayload {
+  tasks: Array<{
+    id: number;
+    status: TaskStatus;
+    position: number;
+  }>;
+}
+
+// ─── Annotations ─────────────────────────────────────────────────────────────
+
+export interface Point {
+  x: number;
+  y: number;
+}
+
+export interface Annotation {
+  id: number;
+  image: number;
+  label: string;
+  color: string;
+  polygon_data: Point[];
+  created_at: string;
+}
+
+export interface AnnotationCreate {
+  image: number;
+  label?: string;
+  color?: string;
+  polygon_data: Point[];
+}
+
+export interface UploadedImage {
+  id: number;
+  filename: string;
+  file: string;
+  file_url: string;
+  uploaded_at: string;
+  annotations: Annotation[];
+}
+
+// ─── API ─────────────────────────────────────────────────────────────────────
+
+export interface PaginatedResponse<T> {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
+}
+
+export interface ApiError {
+  message: string;
+  detail?: string;
+}
