@@ -24,7 +24,7 @@ export default function Sidebar() {
 
   return (
     <aside
-      className="flex flex-col w-64 min-h-screen p-4"
+      className="flex flex-col w-64 h-screen sticky top-0 p-4"
       style={{
         background: 'var(--bg-secondary)',
         borderRight: '1px solid var(--border)',
@@ -60,11 +60,11 @@ export default function Sidebar() {
             <Link
               key={href}
               href={href}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200"
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
+                isActive ? 'sidebar-item-active' : 'hover:bg-white/5'
+              }`}
               style={{
-                background: isActive ? 'var(--accent-glow)' : 'transparent',
                 color: isActive ? 'var(--accent-light)' : 'var(--text-secondary)',
-                border: isActive ? '1px solid rgba(124,58,237,0.3)' : '1px solid transparent',
               }}
             >
               <Icon className="w-4 h-4 flex-shrink-0" />
