@@ -40,6 +40,25 @@
   padding: 0;
 }
 
+/* ── Responsive layout helpers ────────────────── */
+/* Mobile top bar: shown on small screens, hidden on md+ */
+.md-hidden-topbar { display: flex; }
+@media (min-width: 768px) {
+  .md-hidden-topbar { display: none !important; }
+}
+
+/* Mobile sidebar drawer: hidden on desktop */
+.sidebar-mobile { display: block; }
+@media (min-width: 768px) {
+  .sidebar-mobile { display: none !important; }
+}
+
+/* Desktop sidebar: hidden on mobile, shown on desktop */
+.sidebar-desktop { display: none; }
+@media (min-width: 768px) {
+  .sidebar-desktop { display: block; }
+}
+
 html, body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   background-color: var(--bg-primary);
