@@ -60,7 +60,6 @@ export default function TaskCard({ task, isDragging = false }: TaskCardProps) {
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         style={{
-          transform: CSS.Transform.toString(transform),
           transition,
           opacity: isSortableDragging ? 0.4 : 1,
           position: 'relative',
