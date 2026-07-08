@@ -4,6 +4,17 @@ import { create } from 'zustand';
 import type { UploadedImage, Annotation, AnnotationCreate, Point } from '@/types';
 import { annotationsApi } from '@/lib/annotations';
 
+export const PRESET_CLASSES = [
+  { name: 'Tumor',      color: '#FF6B6B' },
+  { name: 'Lesion',     color: '#FF9F43' },
+  { name: 'Edema',      color: '#FECA57' },
+  { name: 'Normal',     color: '#48DBFB' },
+  { name: 'Background', color: '#A29BFE' },
+  { name: 'Artifact',   color: '#55EFC4' },
+  { name: 'Vessel',     color: '#FD79A8' },
+  { name: 'Custom',     color: '#6C5CE7' },
+];
+
 interface AnnotationState {
   images: UploadedImage[];
   activeImageIndex: number;
@@ -12,6 +23,12 @@ interface AnnotationState {
   isLoading: boolean;
   isUploading: boolean;
   error: string | null;
+
+  // UI state
+  selectedClass: string;
+  selectedColor: string;
+  hideAnnotations: boolean;
+  activeTool: 'polygon' | 'point';
 
   fetchImages: () => Promise<void>;
   uploadImages: (files: File[]) => Promise<void>;
@@ -26,6 +43,12 @@ interface AnnotationState {
   saveAnnotation: (label: string, color: string) => Promise<void>;
   deleteAnnotation: (annotationId: number) => Promise<void>;
 
+  // UI setters
+  setSelectedClass: (cls: string) => void;
+  setSelectedColor: (color: string) => void;
+  setHideAnnotations: (hide: boolean) => void;
+  setActiveTool: (tool: 'polygon' | 'point') => void;
+
   // Derived
   activeImage: () => UploadedImage | null;
 }
@@ -38,6 +61,11 @@ export const useAnnotationStore = create<AnnotationState>()((set, get) => ({
   isLoading: false,
   isUploading: false,
   error: null,
+
+  selectedClass: PRESET_CLASSES[0].name,
+  selectedColor: PRESET_CLASSES[0].color,
+  hideAnnotations: false,
+  activeTool: 'polygon',
 
   fetchImages: async () => {
     set({ isLoading: true, error: null });
@@ -69,7 +97,7 @@ export const useAnnotationStore = create<AnnotationState>()((set, get) => ({
       const newImages = state.images.filter((img) => img.id !== id);
       return {
         images: newImages,
-        activeImageIndex: Math.min(state.activeImageIndex, newImages.length - 1),
+        activeImageIndex: Math.min(state.activeImageIndex, Math.max(0, newImages.length - 1)),
       };
     });
   },
@@ -91,7 +119,7 @@ export const useAnnotationStore = create<AnnotationState>()((set, get) => ({
   saveAnnotation: async (label: string, color: string) => {
     const { activeImageIndex, images, currentPolygon } = get();
     const image = images[activeImageIndex];
-    if (!image || currentPolygon.length < 3) return;
+    if (!image || currentPolygon.length < 1) return;
 
     const payload: AnnotationCreate = {
       image: image.id,
@@ -118,14 +146,20 @@ export const useAnnotationStore = create<AnnotationState>()((set, get) => ({
     set((state) => ({
       images: state.images.map((img, idx) =>
         idx === state.activeImageIndex
-          ? {
-              ...img,
-              annotations: img.annotations.filter((a) => a.id !== annotationId),
-            }
+          ? { ...img, annotations: img.annotations.filter((a) => a.id !== annotationId) }
           : img
       ),
     }));
   },
+
+  setSelectedClass: (cls: string) => {
+    const preset = PRESET_CLASSES.find((p) => p.name === cls);
+    set({ selectedClass: cls, selectedColor: preset?.color ?? '#A29BFE' });
+  },
+
+  setSelectedColor: (color: string) => set({ selectedColor: color }),
+  setHideAnnotations: (hide: boolean) => set({ hideAnnotations: hide }),
+  setActiveTool: (tool: 'polygon' | 'point') => set({ activeTool: tool }),
 
   activeImage: () => {
     const { images, activeImageIndex } = get();

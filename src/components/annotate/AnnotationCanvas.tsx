@@ -1,200 +1,316 @@
 'use client';
 
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import { useAnnotationStore } from '@/stores/annotationStore';
 import type { Point } from '@/types';
 
+// ── Coordinate helpers ──────────────────────────────────────────────────────
+
+interface Bounds { x: number; y: number; w: number; h: number }
+
+/** Calculate the objectFit:contain display rect within a container */
+function containBounds(cw: number, ch: number, mw: number, mh: number): Bounds {
+  if (mw === 0 || mh === 0 || cw === 0 || ch === 0) return { x: 0, y: 0, w: cw, h: ch };
+  const scale = Math.min(cw / mw, ch / mh);
+  const w = mw * scale;
+  const h = mh * scale;
+  return { x: (cw - w) / 2, y: (ch - h) / 2, w, h };
+}
+
+/** Normalized (0-1) → SVG pixel */
+function toSVG(pt: Point, b: Bounds) { return { x: pt.x * b.w + b.x, y: pt.y * b.h + b.y }; }
+
+/** SVG pixel → normalized (0-1), clamped to image area */
+function toNorm(svgX: number, svgY: number, b: Bounds): Point | null {
+  const x = (svgX - b.x) / b.w;
+  const y = (svgY - b.y) / b.h;
+  if (x < 0 || x > 1 || y < 0 || y > 1) return null;
+  return { x, y };
+}
+
+const SNAP_PX = 14; // px radius for polygon close-snap
+
+// ── Component ───────────────────────────────────────────────────────────────
+
 export default function AnnotationCanvas() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const imgRef = useRef<HTMLImageElement | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [containerSize, setContainerSize] = useState({ w: 0, h: 0 });
+  const [mediaSize, setMediaSize] = useState({ w: 0, h: 0 });
+  const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
 
   const {
-    images,
-    activeImageIndex,
-    isDrawing,
-    currentPolygon,
-    addPoint,
-    clearCurrentPolygon,
-    saveAnnotation,
-    activeImage,
+    isDrawing, currentPolygon, addPoint, activeImage,
+    hideAnnotations, activeTool,
   } = useAnnotationStore();
 
   const image = activeImage();
 
-  // ── Draw everything on canvas ─────────────────────────────────────────────
-  const draw = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Draw base image
-    if (imgRef.current && imgRef.current.complete) {
-      ctx.drawImage(imgRef.current, 0, 0, canvas.width, canvas.height);
-    }
-
-    // Draw existing saved annotations
-    if (image) {
-      image.annotations.forEach((ann) => {
-        if (ann.polygon_data.length < 2) return;
-        ctx.beginPath();
-        ctx.moveTo(ann.polygon_data[0].x * canvas.width, ann.polygon_data[0].y * canvas.height);
-        ann.polygon_data.slice(1).forEach((pt) => {
-          ctx.lineTo(pt.x * canvas.width, pt.y * canvas.height);
-        });
-        ctx.closePath();
-        ctx.fillStyle = `${ann.color}33`;
-        ctx.fill();
-        ctx.strokeStyle = ann.color;
-        ctx.lineWidth = 2;
-        ctx.stroke();
-
-        // Label
-        if (ann.label) {
-          const fx = ann.polygon_data[0].x * canvas.width;
-          const fy = ann.polygon_data[0].y * canvas.height;
-          ctx.fillStyle = ann.color;
-          ctx.font = 'bold 12px Inter, sans-serif';
-          ctx.fillText(ann.label, fx + 4, fy - 4);
-        }
-
-        // Vertex dots
-        ann.polygon_data.forEach((pt) => {
-          ctx.beginPath();
-          ctx.arc(pt.x * canvas.width, pt.y * canvas.height, 3, 0, Math.PI * 2);
-          ctx.fillStyle = ann.color;
-          ctx.fill();
-        });
-      });
-    }
-
-    // Draw current in-progress polygon
-    if (currentPolygon.length > 0) {
-      ctx.beginPath();
-      ctx.moveTo(currentPolygon[0].x * canvas.width, currentPolygon[0].y * canvas.height);
-      currentPolygon.slice(1).forEach((pt) => {
-        ctx.lineTo(pt.x * canvas.width, pt.y * canvas.height);
-      });
-      ctx.strokeStyle = '#a78bfa';
-      ctx.lineWidth = 2;
-      ctx.setLineDash([5, 3]);
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      // Vertex dots + first-point indicator
-      currentPolygon.forEach((pt, idx) => {
-        ctx.beginPath();
-        ctx.arc(pt.x * canvas.width, pt.y * canvas.height, idx === 0 ? 6 : 4, 0, Math.PI * 2);
-        ctx.fillStyle = idx === 0 ? '#7c3aed' : '#a78bfa';
-        ctx.fill();
-        ctx.strokeStyle = 'white';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-      });
-    }
-  }, [image, currentPolygon]);
-
-  // ── Load image & redraw ───────────────────────────────────────────────────
+  // Watch container size
   useEffect(() => {
-    if (!image) return;
+    const el = containerRef.current;
+    if (!el) return;
+    const obs = new ResizeObserver(([e]) => {
+      setContainerSize({ w: e.contentRect.width, h: e.contentRect.height });
+    });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
 
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      imgRef.current = img;
-      resizeCanvas();
-      draw();
-    };
-    img.src = image.file_url;
-  }, [image?.id]);
+  // Reset media size when file changes
+  useEffect(() => { setMediaSize({ w: 0, h: 0 }); }, [image?.id]);
 
-  useEffect(() => {
-    draw();
-  }, [draw]);
-
-  // ── Resize canvas to fill container ───────────────────────────────────────
-  const resizeCanvas = useCallback(() => {
-    const canvas = canvasRef.current;
-    const container = containerRef.current;
-    if (!canvas || !container) return;
-
-    canvas.width = container.clientWidth;
-    canvas.height = container.clientHeight;
-    draw();
-  }, [draw]);
-
-  useEffect(() => {
-    const observer = new ResizeObserver(resizeCanvas);
-    if (containerRef.current) observer.observe(containerRef.current);
-    return () => observer.disconnect();
-  }, [resizeCanvas]);
-
-  // ── Click to add points ───────────────────────────────────────────────────
-  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDrawing) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / canvas.width;
-    const y = (e.clientY - rect.top) / canvas.height;
-
-    // If clicking near first point and we have >= 3 points, close the polygon
-    if (currentPolygon.length >= 3) {
-      const first = currentPolygon[0];
-      const dx = Math.abs(x - first.x) * canvas.width;
-      const dy = Math.abs(y - first.y) * canvas.height;
-      if (dx < 12 && dy < 12) {
-        // Auto-close by triggering save dialog from toolbar
-        return;
-      }
-    }
-
-    addPoint({ x, y });
-  };
-
-  // ── Double-click to finish polygon ────────────────────────────────────────
-  const handleDoubleClick = () => {
-    if (!isDrawing || currentPolygon.length < 3) return;
-    // Trigger save via store state — toolbar save button becomes visible
-    // User must click "Save Annotation" in toolbar
-    // Just provide visual feedback here
-    draw();
-  };
+  const isVideo = useCallback((url: string) => {
+    const ext = url?.split('.').pop()?.toLowerCase();
+    return ['mp4', 'webm', 'ogg', 'mov', 'avi', 'mkv'].includes(ext ?? '');
+  }, []);
 
   if (!image) return null;
+
+  const fileIsVideo = isVideo(image.file_url);
+  const bounds = containBounds(containerSize.w, containerSize.h, mediaSize.w, mediaSize.h);
+
+  // SVG click → add annotation point
+  const handleSVGClick = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!isDrawing) return;
+    const rect = (e.currentTarget as SVGSVGElement).getBoundingClientRect();
+    const norm = toNorm(e.clientX - rect.left, e.clientY - rect.top, bounds);
+    if (!norm) return;
+
+    if (activeTool === 'point') {
+      // Place a single-point annotation immediately (caller presses Save)
+      addPoint(norm);
+      return;
+    }
+
+    // Polygon: snap-close if near first vertex
+    if (currentPolygon.length >= 3) {
+      const first = toSVG(currentPolygon[0], bounds);
+      const svgX = e.clientX - rect.left;
+      const svgY = e.clientY - rect.top;
+      if (Math.hypot(svgX - first.x, svgY - first.y) < SNAP_PX) return; // toolbar handles save
+    }
+
+    addPoint(norm);
+  };
+
+  const handleSVGMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!isDrawing) return;
+    const rect = (e.currentTarget as SVGSVGElement).getBoundingClientRect();
+    setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+  };
+
+  // Render annotations as SVG
+  const renderAnnotation = (ann: { id: number; color: string; label: string; polygon_data: Point[] }, key: number) => {
+    const pts = ann.polygon_data.map((p) => toSVG(p, bounds));
+    if (pts.length === 0) return null;
+
+    if (pts.length === 1) {
+      // Point annotation — rendered as a filled circle
+      return (
+        <g key={key}>
+          <circle cx={pts[0].x} cy={pts[0].y} r={10} fill={`${ann.color}55`} stroke={ann.color} strokeWidth={2} />
+          <circle cx={pts[0].x} cy={pts[0].y} r={3} fill={ann.color} />
+          {ann.label && (
+            <text x={pts[0].x + 12} y={pts[0].y + 4} fill={ann.color} fontSize={11} fontWeight="bold" fontFamily="Inter,sans-serif">
+              {ann.label}
+            </text>
+          )}
+        </g>
+      );
+    }
+
+    const pointsStr = pts.map((p) => `${p.x},${p.y}`).join(' ');
+    return (
+      <g key={key}>
+        <polygon
+          points={pointsStr}
+          fill={`${ann.color}30`}
+          stroke={ann.color}
+          strokeWidth={2}
+          strokeLinejoin="round"
+        />
+        {ann.label && (
+          <text
+            x={pts[0].x + 4}
+            y={pts[0].y - 6}
+            fill={ann.color}
+            fontSize={11}
+            fontWeight="bold"
+            fontFamily="Inter,sans-serif"
+            style={{ textShadow: '0 1px 3px #000' }}
+          >
+            {ann.label}
+          </text>
+        )}
+        {pts.map((p, i) => (
+          <circle key={i} cx={p.x} cy={p.y} r={3} fill={ann.color} opacity={0.8} />
+        ))}
+      </g>
+    );
+  };
+
+  // In-progress polygon preview
+  const renderInProgress = () => {
+    if (currentPolygon.length === 0) return null;
+    const pts = currentPolygon.map((p) => toSVG(p, bounds));
+
+    const firstPt = pts[0];
+    const polylineStr = pts.map((p) => `${p.x},${p.y}`).join(' ');
+    const canClose = currentPolygon.length >= 3;
+
+    return (
+      <g>
+        {/* Line path */}
+        <polyline
+          points={polylineStr}
+          fill="none"
+          stroke="#a78bfa"
+          strokeWidth={2}
+          strokeLinejoin="round"
+          strokeDasharray="6,4"
+        />
+        {/* Rubber-band line to cursor */}
+        {mousePos && activeTool === 'polygon' && (
+          <line
+            x1={pts[pts.length - 1].x}
+            y1={pts[pts.length - 1].y}
+            x2={mousePos.x}
+            y2={mousePos.y}
+            stroke="#a78bfa"
+            strokeWidth={1.5}
+            strokeDasharray="4,3"
+            opacity={0.6}
+          />
+        )}
+        {/* Vertex dots */}
+        {pts.map((p, i) => (
+          <circle
+            key={i}
+            cx={p.x}
+            cy={p.y}
+            r={i === 0 ? 7 : 4}
+            fill={i === 0 ? (canClose ? '#7c3aed' : '#4a4a6a') : '#a78bfa'}
+            stroke="white"
+            strokeWidth={1.5}
+          />
+        ))}
+        {/* First-point snap ring */}
+        {canClose && (
+          <circle
+            cx={firstPt.x}
+            cy={firstPt.y}
+            r={SNAP_PX}
+            fill="none"
+            stroke="#7c3aed"
+            strokeWidth={1}
+            strokeDasharray="3,3"
+            opacity={0.6}
+          />
+        )}
+      </g>
+    );
+  };
 
   return (
     <div
       ref={containerRef}
-      className="w-full h-full relative"
-      style={{ background: '#000' }}
+      style={{ width: '100%', height: '100%', position: 'relative', backgroundColor: '#000', overflow: 'hidden' }}
     >
-      <canvas
-        ref={canvasRef}
-        id="annotation-canvas"
-        className="absolute inset-0 w-full h-full"
-        style={{ cursor: isDrawing ? 'crosshair' : 'default' }}
-        onClick={handleCanvasClick}
-        onDoubleClick={handleDoubleClick}
-      />
-      {!isDrawing && image.annotations.length === 0 && (
-        <div
-          className="absolute inset-0 flex items-center justify-center pointer-events-none"
-        >
-          <p
-            className="text-sm px-4 py-2 rounded-xl"
-            style={{
-              background: 'rgba(0,0,0,0.6)',
-              color: 'var(--text-secondary)',
-              backdropFilter: 'blur(4px)',
-            }}
-          >
-            Press "Draw Polygon" to start annotating
+      {/* ── Media background ─────────────────────────────────── */}
+      {containerSize.w > 0 && (
+        <div style={{
+          position: 'absolute',
+          left: bounds.x,
+          top: bounds.y,
+          width: bounds.w,
+          height: bounds.h,
+        }}>
+          {fileIsVideo ? (
+            <video
+              key={image.file_url}
+              src={image.file_url}
+              controls
+              style={{ width: '100%', height: '100%', display: 'block' }}
+              onLoadedMetadata={(e) => {
+                const v = e.currentTarget;
+                setMediaSize({ w: v.videoWidth, h: v.videoHeight });
+              }}
+            />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={image.file_url}
+              src={image.file_url}
+              alt={image.filename}
+              draggable={false}
+              style={{ width: '100%', height: '100%', display: 'block', userSelect: 'none' }}
+              onLoad={(e) => {
+                const img = e.currentTarget;
+                setMediaSize({ w: img.naturalWidth, h: img.naturalHeight });
+              }}
+              onError={(e) => {
+                // If the file_url fails, log it for debugging
+                console.error('Image failed to load:', (e.currentTarget as HTMLImageElement).src);
+              }}
+            />
+          )}
+        </div>
+      )}
+
+      {/* ── SVG annotation overlay ───────────────────────────── */}
+      <svg
+        ref={svgRef}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%',
+          cursor: isDrawing ? 'crosshair' : 'default',
+          pointerEvents: isDrawing ? 'all' : 'none',
+        }}
+        onClick={handleSVGClick}
+        onMouseMove={handleSVGMouseMove}
+        onMouseLeave={() => setMousePos(null)}
+      >
+        {/* Saved annotations */}
+        {!hideAnnotations && image.annotations.map((ann, i) => renderAnnotation(ann, i))}
+
+        {/* In-progress drawing */}
+        {renderInProgress()}
+      </svg>
+
+      {/* Hint bar */}
+      {!isDrawing && image.annotations.length === 0 && mediaSize.w > 0 && (
+        <div style={{
+          position: 'absolute',
+          bottom: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          pointerEvents: 'none',
+          zIndex: 5,
+        }}>
+          <p style={{
+            margin: 0,
+            padding: '6px 14px',
+            fontSize: '12px',
+            color: '#8888a8',
+            backgroundColor: 'rgba(0,0,0,0.7)',
+            border: '1px solid rgba(255,255,255,0.06)',
+            borderRadius: '8px',
+            backdropFilter: 'blur(4px)',
+          }}>
+            Click "Draw Polygon" or "Mark Point" above to start annotating
           </p>
+        </div>
+      )}
+
+      {/* Loading indicator while media hasn't loaded its size yet */}
+      {mediaSize.w === 0 && containerSize.w > 0 && (
+        <div style={{
+          position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none',
+        }}>
+          <div style={{ width: '28px', height: '28px', borderRadius: '50%', border: '2px solid #7c3aed', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} />
         </div>
       )}
     </div>
