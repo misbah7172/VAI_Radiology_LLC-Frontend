@@ -288,3 +288,42 @@ html, body {
   outline: 2px solid var(--accent-light);
   outline-offset: 2px;
 }
+
+/* ── Annotation Layout ────────────────────────── */
+.annotate-layout-container {
+  display: flex;
+  flex-direction: row;
+}
+
+@media (max-width: 1024px) {
+  .annotate-layout-container {
+    flex-direction: column !important;
+    overflow-y: auto !important;
+  }
+  .annotate-carousel-sidebar {
+    width: 100% !important;
+    height: 120px !important;
+    border-right: none !important;
+    border-bottom: 1px solid #1a1a26 !important;
+  }
+  .annotate-carousel-sidebar > div {
+    flex-direction: row !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    width: 100% !important;
+    height: 100% !important;
+  }
+  .annotate-carousel-sidebar > div > div {
+    flex-direction: row !important;
+  }
+  .annotate-carousel-sidebar > div > div > div {
+    width: 120px !important;
+    height: 80px !important;
+  }
+  .annotate-list-sidebar {
+    width: 100% !important;
+    height: 250px !important;
+    border-left: none !important;
+    border-top: 1px solid #1a1a26 !important;
+  }
+}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { Upload, Loader2 } from 'lucide-react';
 import { useAnnotationStore } from '@/stores/annotationStore';
 import toast from 'react-hot-toast';
@@ -8,27 +8,28 @@ import toast from 'react-hot-toast';
 export default function ImageUploader() {
   const { uploadImages, isUploading } = useAnnotationStore();
   const inputRef = useRef<HTMLInputElement>(null);
+  const [hovered, setHovered] = useState(false);
 
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
 
     const validFiles = Array.from(files).filter((f) =>
-      f.type.startsWith('image/')
+      f.type.startsWith('image/') || f.type.startsWith('video/')
     );
 
     if (validFiles.length === 0) {
-      toast.error('Please select valid image files');
+      toast.error('Please select valid image or video files');
       return;
     }
 
-    if (validFiles.some((f) => f.size > 10 * 1024 * 1024)) {
-      toast.error('Each image must be under 10MB');
+    if (validFiles.some((f) => f.size > 25 * 1024 * 1024)) {
+      toast.error('Each file must be under 25MB');
       return;
     }
 
     try {
       await uploadImages(validFiles);
-      toast.success(`${validFiles.length} image(s) uploaded!`);
+      toast.success(`${validFiles.length} file(s) uploaded!`);
     } catch {
       toast.error('Upload failed. Please try again.');
     }
@@ -40,28 +41,48 @@ export default function ImageUploader() {
         ref={inputRef}
         id="image-file-input"
         type="file"
-        accept="image/*"
+        accept="image/*,video/*"
         multiple
-        className="hidden"
+        style={{ display: 'none' }}
         onChange={(e) => handleFiles(e.target.files)}
       />
       <button
         id="upload-images-btn"
         onClick={() => inputRef.current?.click()}
         disabled={isUploading}
-        className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
         style={{
-          background: 'linear-gradient(135deg, #7c3aed, #5b21b6)',
-          color: 'white',
-          boxShadow: '0 4px 14px rgba(124, 58, 237, 0.35)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          padding: '8px 16px',
+          borderRadius: '8px',
+          border: 'none',
+          fontSize: '13px',
+          fontWeight: 600,
+          fontFamily: 'inherit',
+          color: '#ffffff',
+          background: isUploading
+            ? 'rgba(124,58,237,0.6)'
+            : hovered
+            ? 'linear-gradient(135deg, #6d28d9, #4c1d95)'
+            : 'linear-gradient(135deg, #7c3aed, #5b21b6)',
+          boxShadow: hovered && !isUploading
+            ? '0 6px 20px -4px rgba(124,58,237,0.55)'
+            : '0 4px 14px -4px rgba(124,58,237,0.4)',
+          cursor: isUploading ? 'not-allowed' : 'pointer',
+          transform: hovered && !isUploading ? 'translateY(-1px)' : 'translateY(0)',
+          transition: 'all 0.18s ease',
+          userSelect: 'none',
         }}
       >
         {isUploading ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
+          <Loader2 style={{ width: '15px', height: '15px', animation: 'spin 1s linear infinite' }} />
         ) : (
-          <Upload className="w-4 h-4" />
+          <Upload style={{ width: '15px', height: '15px' }} />
         )}
-        {isUploading ? 'Uploading…' : 'Upload Images'}
+        <span>{isUploading ? 'Uploading…' : 'Upload Files'}</span>
       </button>
     </div>
   );
