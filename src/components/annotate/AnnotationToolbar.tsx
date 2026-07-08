@@ -16,6 +16,7 @@ export default function AnnotationToolbar() {
     hideAnnotations, setHideAnnotations,
     activeTool, setActiveTool,
     images, activeImageIndex, setActiveImageIndex,
+    currentVideoTime,
   } = useAnnotationStore();
 
   const [isSaving, setIsSaving] = useState(false);
@@ -26,19 +27,22 @@ export default function AnnotationToolbar() {
   const image = images[activeImageIndex];
   const totalImages = images.length;
 
+  const isVideo = (url: string) => {
+    const ext = url?.split('.').pop()?.toLowerCase();
+    return ['mp4', 'webm', 'ogg', 'mov', 'avi', 'mkv'].includes(ext ?? '');
+  };
+
   const handleSave = async () => {
-    if (currentPolygon.length < 1) {
-      toast.error('Place at least one point to save');
-      return;
-    }
-    if (activeTool === 'polygon' && currentPolygon.length < 3) {
+    if (currentPolygon.length < 3) {
       toast.error('Draw at least 3 points to form a polygon');
       return;
     }
     setIsSaving(true);
     const label = customLabel.trim() || selectedClass;
+    const isVid = image ? isVideo(image.file_url) : false;
+    const timestamp = isVid ? currentVideoTime : null;
     try {
-      await saveAnnotation(label, selectedColor);
+      await saveAnnotation(label, selectedColor, timestamp);
       setCustomLabel('');
       toast.success('Annotation saved!');
     } catch {
@@ -48,18 +52,18 @@ export default function AnnotationToolbar() {
     }
   };
 
-  const toggleDraw = (tool: 'polygon' | 'point') => {
-    if (isDrawing && activeTool === tool) {
+  const toggleDraw = () => {
+    if (isDrawing) {
       clearCurrentPolygon();
       setIsDrawing(false);
     } else {
       clearCurrentPolygon();
-      setActiveTool(tool);
+      setActiveTool('polygon');
       setIsDrawing(true);
     }
   };
 
-  const btnStyle = (key: string, active = false, danger = false): React.CSSProperties => ({
+  const btnStyle = (key: string, active = false): React.CSSProperties => ({
     display: 'flex',
     alignItems: 'center',
     gap: '6px',
@@ -70,7 +74,7 @@ export default function AnnotationToolbar() {
     fontWeight: 500,
     fontFamily: 'inherit',
     background: active
-      ? (danger ? '#ef4444' : '#7c3aed')
+      ? '#7c3aed'
       : hoveredBtn === key
       ? 'rgba(255,255,255,0.07)'
       : 'rgba(255,255,255,0.03)',
@@ -223,25 +227,13 @@ export default function AnnotationToolbar() {
         {/* Draw Polygon */}
         <button
           id="toggle-polygon-btn"
-          onClick={() => toggleDraw('polygon')}
+          onClick={toggleDraw}
           onMouseEnter={() => setHoveredBtn('polygon')}
           onMouseLeave={() => setHoveredBtn(null)}
-          style={btnStyle('polygon', isDrawing && activeTool === 'polygon')}
+          style={btnStyle('polygon', isDrawing)}
         >
           <Pencil style={{ width: '13px', height: '13px' }} />
-          {isDrawing && activeTool === 'polygon' ? 'Drawing Polygon…' : 'Draw Polygon'}
-        </button>
-
-        {/* Mark Point */}
-        <button
-          id="toggle-point-btn"
-          onClick={() => toggleDraw('point')}
-          onMouseEnter={() => setHoveredBtn('point')}
-          onMouseLeave={() => setHoveredBtn(null)}
-          style={btnStyle('point', isDrawing && activeTool === 'point')}
-        >
-          <MapPin style={{ width: '13px', height: '13px' }} />
-          {isDrawing && activeTool === 'point' ? 'Placing Point…' : 'Mark Point'}
+          {isDrawing ? 'Drawing Polygon…' : 'Draw Polygon'}
         </button>
 
         {/* Clear */}
@@ -285,7 +277,7 @@ export default function AnnotationToolbar() {
         )}
 
         {/* Save button */}
-        {isDrawing && currentPolygon.length >= (activeTool === 'polygon' ? 3 : 1) && (
+        {isDrawing && currentPolygon.length >= 3 && (
           <button
             id="save-annotation-btn"
             onClick={handleSave}
@@ -311,12 +303,12 @@ export default function AnnotationToolbar() {
             {isSaving
               ? <Loader2 style={{ width: '13px', height: '13px', animation: 'spin 1s linear infinite' }} />
               : <Save style={{ width: '13px', height: '13px' }} />}
-            Save {activeTool === 'point' ? 'Point' : 'Region'}
+            Save Region
           </button>
         )}
 
         {/* Hint */}
-        {isDrawing && activeTool === 'polygon' && (
+        {isDrawing && (
           <p style={{ fontSize: '11px', color: '#5a5a7a', marginLeft: 'auto', margin: 0, whiteSpace: 'nowrap' }}>
             Click to add points · Click 1st point or Save to close
           </p>

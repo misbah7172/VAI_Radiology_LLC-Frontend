@@ -30,11 +30,20 @@ function toNorm(svgX: number, svgY: number, b: Bounds): Point | null {
 
 const SNAP_PX = 14; // px radius for polygon close-snap
 
+// Helper to detect video format based on URL/filename
+const isVideoFile = (url: string) => {
+  if (!url) return false;
+  const ext = url.split('.').pop()?.toLowerCase();
+  return ['mp4', 'webm', 'ogg', 'mov', 'avi', 'mkv'].includes(ext ?? '');
+};
+
 // ── Component ───────────────────────────────────────────────────────────────
 
 export default function AnnotationCanvas() {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
   const [containerSize, setContainerSize] = useState({ w: 0, h: 0 });
   const [mediaSize, setMediaSize] = useState({ w: 0, h: 0 });
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
@@ -42,9 +51,12 @@ export default function AnnotationCanvas() {
   const {
     isDrawing, currentPolygon, addPoint, activeImage,
     hideAnnotations, activeTool,
+    currentVideoTime, setCurrentVideoTime,
+    seekTargetTime, setSeekTargetTime,
   } = useAnnotationStore();
 
   const image = activeImage();
+  const fileIsVideo = image ? isVideoFile(image.file_url) : false;
 
   // Watch container size
   useEffect(() => {
@@ -57,17 +69,61 @@ export default function AnnotationCanvas() {
     return () => obs.disconnect();
   }, []);
 
-  // Reset media size when file changes
-  useEffect(() => { setMediaSize({ w: 0, h: 0 }); }, [image?.id]);
+  // Sync video time at 60fps via requestAnimationFrame
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !fileIsVideo) return;
 
-  const isVideo = useCallback((url: string) => {
-    const ext = url?.split('.').pop()?.toLowerCase();
-    return ['mp4', 'webm', 'ogg', 'mov', 'avi', 'mkv'].includes(ext ?? '');
-  }, []);
+    let animId: number;
+    const update = () => {
+      setCurrentVideoTime(video.currentTime);
+      animId = requestAnimationFrame(update);
+    };
+
+    const handlePlay = () => {
+      animId = requestAnimationFrame(update);
+    };
+
+    const handlePause = () => {
+      cancelAnimationFrame(animId);
+      setCurrentVideoTime(video.currentTime);
+    };
+
+    video.addEventListener('play', handlePlay);
+    video.addEventListener('pause', handlePause);
+    video.addEventListener('seeking', handlePause);
+    video.addEventListener('seeked', handlePause);
+
+    // Initial play check
+    if (!video.paused) {
+      handlePlay();
+    }
+
+    return () => {
+      cancelAnimationFrame(animId);
+      video.removeEventListener('play', handlePlay);
+      video.removeEventListener('pause', handlePause);
+      video.removeEventListener('seeking', handlePause);
+      video.removeEventListener('seeked', handlePause);
+    };
+  }, [fileIsVideo, image?.id, setCurrentVideoTime]);
+
+  // Handle external video seeking
+  useEffect(() => {
+    if (seekTargetTime !== null && videoRef.current) {
+      videoRef.current.currentTime = seekTargetTime;
+      setCurrentVideoTime(seekTargetTime);
+      setSeekTargetTime(null);
+    }
+  }, [seekTargetTime, setCurrentVideoTime, setSeekTargetTime]);
+
+  // Reset media size when file changes
+  useEffect(() => {
+    setMediaSize({ w: 0, h: 0 });
+  }, [image?.id]);
 
   if (!image) return null;
 
-  const fileIsVideo = isVideo(image.file_url);
   const bounds = containBounds(containerSize.w, containerSize.h, mediaSize.w, mediaSize.h);
 
   // SVG click → add annotation point
@@ -76,12 +132,6 @@ export default function AnnotationCanvas() {
     const rect = (e.currentTarget as SVGSVGElement).getBoundingClientRect();
     const norm = toNorm(e.clientX - rect.left, e.clientY - rect.top, bounds);
     if (!norm) return;
-
-    if (activeTool === 'point') {
-      // Place a single-point annotation immediately (caller presses Save)
-      addPoint(norm);
-      return;
-    }
 
     // Polygon: snap-close if near first vertex
     if (currentPolygon.length >= 3) {
@@ -100,16 +150,24 @@ export default function AnnotationCanvas() {
     setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
   };
 
+  // Filter annotations by timestamp when playing a video (tight tolerance to align with single frame)
+  const displayedAnnotations = !hideAnnotations
+    ? image.annotations.filter((ann) => {
+        if (!fileIsVideo) return true;
+        if (ann.frame_time == null) return true;
+        return Math.abs(ann.frame_time - currentVideoTime) < 0.05;
+      })
+    : [];
+
   // Render annotations as SVG
   const renderAnnotation = (ann: { id: number; color: string; label: string; polygon_data: Point[] }, key: number) => {
     const pts = ann.polygon_data.map((p) => toSVG(p, bounds));
     if (pts.length === 0) return null;
 
     if (pts.length === 1) {
-      // Point annotation — rendered as a filled circle
       return (
         <g key={key}>
-          <circle cx={pts[0].x} cy={pts[0].y} r={10} fill={`${ann.color}55`} stroke={ann.color} strokeWidth={2} />
+          <circle cx={pts[0].x} cy={pts[0].y} r={10} fill={`${ann.color}44`} stroke={ann.color} strokeWidth={2} />
           <circle cx={pts[0].x} cy={pts[0].y} r={3} fill={ann.color} />
           {ann.label && (
             <text x={pts[0].x + 12} y={pts[0].y + 4} fill={ann.color} fontSize={11} fontWeight="bold" fontFamily="Inter,sans-serif">
@@ -125,7 +183,7 @@ export default function AnnotationCanvas() {
       <g key={key}>
         <polygon
           points={pointsStr}
-          fill={`${ann.color}30`}
+          fill={`${ann.color}35`}
           stroke={ann.color}
           strokeWidth={2}
           strokeLinejoin="round"
@@ -161,7 +219,6 @@ export default function AnnotationCanvas() {
 
     return (
       <g>
-        {/* Line path */}
         <polyline
           points={polylineStr}
           fill="none"
@@ -170,8 +227,7 @@ export default function AnnotationCanvas() {
           strokeLinejoin="round"
           strokeDasharray="6,4"
         />
-        {/* Rubber-band line to cursor */}
-        {mousePos && activeTool === 'polygon' && (
+        {mousePos && (
           <line
             x1={pts[pts.length - 1].x}
             y1={pts[pts.length - 1].y}
@@ -183,7 +239,6 @@ export default function AnnotationCanvas() {
             opacity={0.6}
           />
         )}
-        {/* Vertex dots */}
         {pts.map((p, i) => (
           <circle
             key={i}
@@ -195,7 +250,6 @@ export default function AnnotationCanvas() {
             strokeWidth={1.5}
           />
         ))}
-        {/* First-point snap ring */}
         {canClose && (
           <circle
             cx={firstPt.x}
@@ -228,6 +282,7 @@ export default function AnnotationCanvas() {
         }}>
           {fileIsVideo ? (
             <video
+              ref={videoRef}
               key={image.file_url}
               src={image.file_url}
               controls
@@ -235,6 +290,10 @@ export default function AnnotationCanvas() {
               onLoadedMetadata={(e) => {
                 const v = e.currentTarget;
                 setMediaSize({ w: v.videoWidth, h: v.videoHeight });
+              }}
+              onTimeUpdate={(e) => {
+                // Keep the store synchronized with the video playing time
+                setCurrentVideoTime(e.currentTarget.currentTime);
               }}
             />
           ) : (
@@ -248,10 +307,6 @@ export default function AnnotationCanvas() {
               onLoad={(e) => {
                 const img = e.currentTarget;
                 setMediaSize({ w: img.naturalWidth, h: img.naturalHeight });
-              }}
-              onError={(e) => {
-                // If the file_url fails, log it for debugging
-                console.error('Image failed to load:', (e.currentTarget as HTMLImageElement).src);
               }}
             />
           )}
@@ -273,15 +328,15 @@ export default function AnnotationCanvas() {
         onMouseMove={handleSVGMouseMove}
         onMouseLeave={() => setMousePos(null)}
       >
-        {/* Saved annotations */}
-        {!hideAnnotations && image.annotations.map((ann, i) => renderAnnotation(ann, i))}
+        {/* Render only annotations matching current frame */}
+        {displayedAnnotations.map((ann, i) => renderAnnotation(ann, i))}
 
         {/* In-progress drawing */}
         {renderInProgress()}
       </svg>
 
       {/* Hint bar */}
-      {!isDrawing && image.annotations.length === 0 && mediaSize.w > 0 && (
+      {!isDrawing && displayedAnnotations.length === 0 && mediaSize.w > 0 && (
         <div style={{
           position: 'absolute',
           bottom: '20px',
@@ -300,7 +355,9 @@ export default function AnnotationCanvas() {
             borderRadius: '8px',
             backdropFilter: 'blur(4px)',
           }}>
-            Click "Draw Polygon" or "Mark Point" above to start annotating
+            {fileIsVideo
+              ? `Seek video and click "Draw Polygon" to annotate at this frame`
+              : `Click "Draw Polygon" above to start annotating`}
           </p>
         </div>
       )}

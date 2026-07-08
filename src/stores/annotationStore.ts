@@ -30,6 +30,10 @@ interface AnnotationState {
   hideAnnotations: boolean;
   activeTool: 'polygon' | 'point';
 
+  // Video state
+  currentVideoTime: number;
+  seekTargetTime: number | null;
+
   fetchImages: () => Promise<void>;
   uploadImages: (files: File[]) => Promise<void>;
   deleteImage: (id: number) => Promise<void>;
@@ -40,7 +44,7 @@ interface AnnotationState {
   addPoint: (point: Point) => void;
   clearCurrentPolygon: () => void;
 
-  saveAnnotation: (label: string, color: string) => Promise<void>;
+  saveAnnotation: (label: string, color: string, frameTime?: number | null) => Promise<void>;
   deleteAnnotation: (annotationId: number) => Promise<void>;
 
   // UI setters
@@ -48,6 +52,10 @@ interface AnnotationState {
   setSelectedColor: (color: string) => void;
   setHideAnnotations: (hide: boolean) => void;
   setActiveTool: (tool: 'polygon' | 'point') => void;
+
+  // Video setters
+  setCurrentVideoTime: (t: number) => void;
+  setSeekTargetTime: (t: number | null) => void;
 
   // Derived
   activeImage: () => UploadedImage | null;
@@ -66,6 +74,9 @@ export const useAnnotationStore = create<AnnotationState>()((set, get) => ({
   selectedColor: PRESET_CLASSES[0].color,
   hideAnnotations: false,
   activeTool: 'polygon',
+
+  currentVideoTime: 0,
+  seekTargetTime: null,
 
   fetchImages: async () => {
     set({ isLoading: true, error: null });
@@ -103,7 +114,7 @@ export const useAnnotationStore = create<AnnotationState>()((set, get) => ({
   },
 
   setActiveImageIndex: (index: number) => {
-    set({ activeImageIndex: index, isDrawing: false, currentPolygon: [] });
+    set({ activeImageIndex: index, isDrawing: false, currentPolygon: [], currentVideoTime: 0, seekTargetTime: null });
   },
 
   setIsDrawing: (drawing: boolean) => set({ isDrawing: drawing }),
@@ -116,7 +127,7 @@ export const useAnnotationStore = create<AnnotationState>()((set, get) => ({
 
   clearCurrentPolygon: () => set({ currentPolygon: [] }),
 
-  saveAnnotation: async (label: string, color: string) => {
+  saveAnnotation: async (label: string, color: string, frameTime?: number | null) => {
     const { activeImageIndex, images, currentPolygon } = get();
     const image = images[activeImageIndex];
     if (!image || currentPolygon.length < 1) return;
@@ -126,6 +137,7 @@ export const useAnnotationStore = create<AnnotationState>()((set, get) => ({
       label,
       color,
       polygon_data: currentPolygon,
+      frame_time: frameTime,
     };
 
     const annotation = await annotationsApi.createAnnotation(payload);
@@ -160,6 +172,9 @@ export const useAnnotationStore = create<AnnotationState>()((set, get) => ({
   setSelectedColor: (color: string) => set({ selectedColor: color }),
   setHideAnnotations: (hide: boolean) => set({ hideAnnotations: hide }),
   setActiveTool: (tool: 'polygon' | 'point') => set({ activeTool: tool }),
+
+  setCurrentVideoTime: (t: number) => set({ currentVideoTime: t }),
+  setSeekTargetTime: (t: number | null) => set({ seekTargetTime: t }),
 
   activeImage: () => {
     const { images, activeImageIndex } = get();

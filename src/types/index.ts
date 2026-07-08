@@ -67,6 +67,7 @@ export interface Annotation {
   label: string;
   color: string;
   polygon_data: Point[];
+  frame_time?: number | null;
   created_at: string;
 }
 
@@ -75,6 +76,7 @@ export interface AnnotationCreate {
   label?: string;
   color?: string;
   polygon_data: Point[];
+  frame_time?: number | null;
 }
 
 export interface UploadedImage {
