@@ -12,9 +12,10 @@ interface ColumnProps {
   color: string;
   tasks: Task[];
   isOver: boolean;
+  highlightedTaskId?: number | null;
 }
 
-export default function Column({ id, label, color, tasks, isOver }: ColumnProps) {
+export default function Column({ id, label, color, tasks, isOver, highlightedTaskId }: ColumnProps) {
   const { setNodeRef } = useDroppable({ id });
 
   return (
@@ -86,7 +87,11 @@ export default function Column({ id, label, color, tasks, isOver }: ColumnProps)
       }}>
         <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
           {tasks.map((task) => (
-            <TaskCard key={task.id} task={task} />
+            <TaskCard
+              key={task.id}
+              task={task}
+              isHighlighted={task.id === highlightedTaskId}
+            />
           ))}
         </SortableContext>
 

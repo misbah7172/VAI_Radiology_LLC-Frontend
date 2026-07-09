@@ -26,4 +26,11 @@ export const tasksApi = {
   reorder: async (payload: ReorderPayload): Promise<void> => {
     await api.post('/api/tasks/reorder/', payload);
   },
+
+  searchByTag: async (tag: string): Promise<PaginatedResponse<Task>> => {
+    const { data } = await api.get<PaginatedResponse<Task>>('/api/tasks/', {
+      params: { tag },
+    });
+    return data;
+  },
 };

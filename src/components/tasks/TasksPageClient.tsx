@@ -1,20 +1,87 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import { Plus, Search, X } from 'lucide-react';
 import { useTaskStore } from '@/stores/taskStore';
+import { tasksApi } from '@/lib/tasks';
+import type { Task } from '@/types';
+import { parseISO } from 'date-fns';
 import DateSelector from './DateSelector';
 import Board from './Board';
 import TaskModal from './TaskModal';
+import SearchResultsGrid from './SearchResultsGrid';
 
 export default function TasksPageClient() {
-  const { fetchTasks } = useTaskStore();
+  const { fetchTasks, setSelectedDate } = useTaskStore();
   const [showModal, setShowModal] = useState(false);
   const [btnHovered, setBtnHovered] = useState(false);
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Task[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isSearchMode, setIsSearchMode] = useState(false);
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [highlightedTaskId, setHighlightedTaskId] = useState<number | null>(null);
+
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchTasks();
   }, []);
+
+  // Auto-clear highlight after 3s
+  useEffect(() => {
+    if (highlightedTaskId === null) return;
+    const t = setTimeout(() => setHighlightedTaskId(null), 3000);
+    return () => clearTimeout(t);
+  }, [highlightedTaskId]);
+
+  // Debounced search
+  const runSearch = useCallback(async (query: string) => {
+    const q = query.trim();
+    if (!q) {
+      setIsSearchMode(false);
+      setSearchResults([]);
+      return;
+    }
+    setIsSearchMode(true);
+    setIsSearching(true);
+    try {
+      const res = await tasksApi.searchByTag(q);
+      setSearchResults(res.results);
+    } catch {
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  }, []);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setSearchQuery(val);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => runSearch(val), 350);
+  };
+
+  const clearSearch = () => {
+    setSearchQuery('');
+    setIsSearchMode(false);
+    setSearchResults([]);
+    setHighlightedTaskId(null);
+    inputRef.current?.focus();
+  };
+
+  // Navigate to the task's date, close search, and highlight
+  const handleNavigate = (task: Task) => {
+    const date = parseISO(String(task.due_date));
+    setSelectedDate(date);     // updates store + re-fetches tasks for that date
+    setHighlightedTaskId(task.id);
+    setIsSearchMode(false);
+    setSearchQuery('');
+    setSearchResults([]);
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
@@ -41,16 +108,70 @@ export default function TasksPageClient() {
           }}>
             Task Board
           </h1>
-          <p style={{
-            fontSize: '14px',
-            color: '#63637e',
-            marginTop: '5px',
-          }}>
+          <p style={{ fontSize: '14px', color: '#63637e', marginTop: '5px' }}>
             Manage your daily workspace tasks
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          {/* Tag Search Bar */}
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <div style={{
+              position: 'absolute',
+              left: '11px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              pointerEvents: 'none',
+              color: searchFocused ? '#a78bfa' : '#5a5a7a',
+              transition: 'color 0.15s ease',
+            }}>
+              <Search style={{ width: '14px', height: '14px' }} />
+            </div>
+            <input
+              ref={inputRef}
+              id="tag-search-input"
+              type="text"
+              value={searchQuery}
+              onChange={handleSearchChange}
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setSearchFocused(false)}
+              placeholder="Search by tag…"
+              style={{
+                padding: '8px 34px 8px 34px',
+                borderRadius: '8px',
+                border: `1px solid ${searchFocused || isSearchMode ? 'rgba(124,58,237,0.5)' : '#232332'}`,
+                backgroundColor: searchFocused || isSearchMode ? 'rgba(124,58,237,0.06)' : '#181822',
+                color: '#f4f4f7',
+                fontSize: '13px',
+                fontFamily: 'inherit',
+                outline: 'none',
+                width: '200px',
+                boxShadow: searchFocused || isSearchMode ? '0 0 0 2px rgba(124,58,237,0.12)' : 'none',
+                transition: 'all 0.18s ease',
+              }}
+            />
+            {searchQuery && (
+              <button
+                onClick={clearSearch}
+                style={{
+                  position: 'absolute',
+                  right: '8px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: '#5a5a7a',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '2px',
+                }}
+              >
+                <X style={{ width: '13px', height: '13px' }} />
+              </button>
+            )}
+          </div>
+
           <DateSelector />
           <button
             id="add-task-btn"
@@ -85,9 +206,20 @@ export default function TasksPageClient() {
         </div>
       </div>
 
-      {/* Board */}
-      <div style={{ flex: 1, overflow: 'hidden' }}>
-        <Board />
+      {/* Board or Search Results */}
+      <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        {isSearchMode ? (
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            <SearchResultsGrid
+              results={searchResults}
+              query={searchQuery}
+              isLoading={isSearching}
+              onNavigate={handleNavigate}
+            />
+          </div>
+        ) : (
+          <Board highlightedTaskId={highlightedTaskId} />
+        )}
       </div>
 
       {/* Modal */}

@@ -23,7 +23,11 @@ const COLUMNS: { id: TaskStatus; label: string; color: string }[] = [
   { id: 'done', label: 'Done', color: '#10b981' },
 ];
 
-export default function Board() {
+interface BoardProps {
+  highlightedTaskId?: number | null;
+}
+
+export default function Board({ highlightedTaskId }: BoardProps) {
   const { tasks, isLoading, reorderTasks, getTasksByStatus } = useTaskStore();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [activeStatus, setActiveStatus] = useState<TaskStatus | null>(null);
@@ -107,6 +111,7 @@ export default function Board() {
             color={col.color}
             tasks={getTasksByStatus(col.id)}
             isOver={activeStatus === col.id && activeTask !== null}
+            highlightedTaskId={highlightedTaskId}
           />
         ))}
       </div>

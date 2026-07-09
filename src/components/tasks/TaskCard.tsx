@@ -19,9 +19,10 @@ const PRIORITY_CONFIG = {
 interface TaskCardProps {
   task: Task;
   isDragging?: boolean;
+  isHighlighted?: boolean;
 }
 
-export default function TaskCard({ task, isDragging = false }: TaskCardProps) {
+export default function TaskCard({ task, isDragging = false, isHighlighted = false }: TaskCardProps) {
   const { deleteTask } = useTaskStore();
   const [showEditModal, setShowEditModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -64,16 +65,21 @@ export default function TaskCard({ task, isDragging = false }: TaskCardProps) {
           opacity: isSortableDragging ? 0.4 : 1,
           position: 'relative',
           padding: '12px 12px 12px 24px',
-          backgroundColor: '#181822',
-          border: `1px solid ${isHovered || isDragging ? '#2e2e42' : '#232332'}`,
+          backgroundColor: isHighlighted ? '#1c1630' : '#181822',
+          border: isHighlighted
+            ? '1px solid rgba(124,58,237,0.7)'
+            : `1px solid ${isHovered || isDragging ? '#2e2e42' : '#232332'}`,
           borderRadius: '10px',
-          boxShadow: isHovered || isDragging
+          boxShadow: isHighlighted
+            ? '0 0 0 3px rgba(124,58,237,0.18), 0 8px 24px -8px rgba(124,58,237,0.35)'
+            : isHovered || isDragging
             ? '0 8px 24px -8px rgba(0,0,0,0.6), 0 1px 0 rgba(255,255,255,0.05) inset'
             : '0 2px 8px -2px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.03) inset',
           transform: isDragging
             ? `${CSS.Transform.toString(transform)} scale(1.02) rotate(1deg)`
             : CSS.Transform.toString(transform) || undefined,
           cursor: 'default',
+          animation: isHighlighted ? 'pulse-border 1.8s ease 2' : 'none',
         }}
       >
         {/* Drag handle */}
