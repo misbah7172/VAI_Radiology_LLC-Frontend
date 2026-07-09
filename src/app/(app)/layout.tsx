@@ -127,6 +127,22 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         />
       )}
 
+      {/* Sidebar - Mobile Drawer */}
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        bottom: 0,
+        zIndex: 50,
+        transform: isSidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
+        transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+        height: '100vh',
+      }}
+        className="sidebar-mobile"
+      >
+        <Sidebar onClose={() => setIsSidebarOpen(false)} />
+      </div>
+
       {/* Main layout: sidebar + content */}
       <div style={{
         position: 'relative',
@@ -137,22 +153,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         overflow: 'hidden',
         height: '100vh',
       }}>
-        {/* Sidebar */}
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          bottom: 0,
-          zIndex: 50,
-          transform: isSidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
-          transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-          height: '100vh',
-        }}
-          className="sidebar-mobile"
-        >
-          <Sidebar onClose={() => setIsSidebarOpen(false)} />
-        </div>
-
         {/* Desktop sidebar — always visible */}
         <div style={{
           flexShrink: 0,
