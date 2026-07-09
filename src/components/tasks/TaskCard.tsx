@@ -8,13 +8,144 @@ import type { Task } from '@/types';
 import { useTaskStore } from '@/stores/taskStore';
 import TaskModal from './TaskModal';
 import toast from 'react-hot-toast';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, formatDistanceToNow, isPast, isFuture } from 'date-fns';
 
 const PRIORITY_CONFIG = {
   low:    { label: 'Low',    color: '#6ee7b7' },
   medium: { label: 'Medium', color: '#fcd34d' },
   high:   { label: 'High',   color: '#f87171' },
 };
+
+// ── Kaggle-style Progress Timeline ──────────────────────────────────────────
+
+interface ProgressTimelineProps {
+  createdAt: string;   // ISO datetime — "Start" anchor
+  dueDate: string;     // YYYY-MM-DD — "Close" anchor
+}
+
+function ProgressTimeline({ createdAt, dueDate }: ProgressTimelineProps) {
+  const start = parseISO(createdAt);
+  const end   = parseISO(dueDate);
+  const now   = new Date();
+
+  const total   = end.getTime() - start.getTime();
+  const elapsed = now.getTime() - start.getTime();
+  const pct     = total <= 0 ? 100 : Math.min(100, Math.max(0, (elapsed / total) * 100));
+
+  const isEnded   = isPast(end);
+  const isStarted = isPast(start);
+
+  const startLabel = isStarted
+    ? formatDistanceToNow(start, { addSuffix: true })   // "10 days ago"
+    : `in ${formatDistanceToNow(start)}`;
+
+  const endLabel = isEnded
+    ? formatDistanceToNow(end, { addSuffix: true })     // "3 days ago"
+    : `${formatDistanceToNow(end)} to go`;              // "3 months to go"
+
+  // Color: green if done, amber if >70%, purple otherwise
+  const trackColor = isEnded
+    ? '#10b981'
+    : pct > 70 ? '#f59e0b' : '#7c3aed';
+
+  return (
+    <div style={{ marginTop: '10px', marginBottom: '4px' }}>
+      {/* Labels row */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'flex-end',
+        marginBottom: '5px',
+        gap: '8px',
+      }}>
+        <div>
+          <div style={{ fontSize: '10px', fontWeight: 700, color: '#d4d4e8', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+            Start
+          </div>
+          <div style={{ fontSize: '10px', color: '#5a5a7a', marginTop: '1px', whiteSpace: 'nowrap' }}>
+            {startLabel}
+          </div>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: '10px', fontWeight: 700, color: isEnded ? '#10b981' : '#d4d4e8', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+            {isEnded ? 'Closed' : 'Close'}
+          </div>
+          <div style={{ fontSize: '10px', color: isEnded ? '#10b98188' : '#5a5a7a', marginTop: '1px', whiteSpace: 'nowrap' }}>
+            {endLabel}
+          </div>
+        </div>
+      </div>
+
+      {/* Track */}
+      <div style={{
+        position: 'relative',
+        height: '4px',
+        borderRadius: '99px',
+        backgroundColor: 'rgba(255,255,255,0.06)',
+        overflow: 'visible',
+      }}>
+        {/* Filled portion */}
+        <div style={{
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          height: '100%',
+          width: `${pct}%`,
+          borderRadius: '99px',
+          background: `linear-gradient(90deg, rgba(124,58,237,0.4) 0%, ${trackColor} 100%)`,
+          transition: 'width 0.4s ease',
+        }} />
+
+        {/* Start dot (white) */}
+        <div style={{
+          position: 'absolute',
+          left: '-1px',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          width: '8px',
+          height: '8px',
+          borderRadius: '50%',
+          backgroundColor: '#ffffff',
+          border: '1.5px solid rgba(255,255,255,0.3)',
+          zIndex: 2,
+        }} />
+
+        {/* Current position dot (accent-colored) — skip if before start or after end */}
+        {pct > 2 && pct < 98 && (
+          <div style={{
+            position: 'absolute',
+            left: `calc(${pct}% - 5px)`,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            width: '10px',
+            height: '10px',
+            borderRadius: '50%',
+            backgroundColor: trackColor,
+            border: '2px solid #111116',
+            boxShadow: `0 0 6px ${trackColor}80`,
+            zIndex: 3,
+          }} />
+        )}
+
+        {/* Close dot */}
+        <div style={{
+          position: 'absolute',
+          right: '-1px',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          width: '8px',
+          height: '8px',
+          borderRadius: '50%',
+          backgroundColor: isEnded ? '#10b981' : '#48dbfb',
+          border: '1.5px solid rgba(255,255,255,0.15)',
+          zIndex: 2,
+        }} />
+      </div>
+    </div>
+  );
+}
+
+// ── TaskCard ─────────────────────────────────────────────────────────────────
 
 interface TaskCardProps {
   task: Task;
@@ -218,6 +349,9 @@ export default function TaskCard({ task, isDragging = false, isHighlighted = fal
           </div>
         )}
 
+        {/* ── Kaggle-style Progress Timeline ── */}
+        <ProgressTimeline createdAt={task.created_at} dueDate={task.due_date} />
+
         {/* Footer */}
         <div style={{
           display: 'flex',
@@ -225,6 +359,8 @@ export default function TaskCard({ task, isDragging = false, isHighlighted = fal
           justifyContent: 'space-between',
           paddingTop: '8px',
           borderTop: '1px solid rgba(255,255,255,0.03)',
+          flexWrap: 'wrap',
+          gap: '4px',
         }}>
           {/* Priority */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
@@ -247,17 +383,19 @@ export default function TaskCard({ task, isDragging = false, isHighlighted = fal
             </span>
           </div>
 
-          {/* Due date */}
-          <span style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '4px',
-            fontSize: '11px',
-            color: '#4a4a6a',
-          }}>
-            <Clock style={{ width: '11px', height: '11px' }} />
-            {format(parseISO(task.due_date), 'MMM d')}
-          </span>
+          {/* Timestamps */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '1px' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: '#4a4a6a' }}>
+              <Clock style={{ width: '9px', height: '9px' }} />
+              Created {formatDistanceToNow(parseISO(task.created_at), { addSuffix: true })}
+            </span>
+            {task.updated_at !== task.created_at && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: '#3d3d55' }}>
+                <Clock style={{ width: '9px', height: '9px' }} />
+                Edited {formatDistanceToNow(parseISO(task.updated_at), { addSuffix: true })}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
