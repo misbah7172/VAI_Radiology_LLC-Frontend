@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { useAnnotationStore } from '@/stores/annotationStore';
 import type { Point } from '@/types';
 
@@ -50,7 +50,7 @@ export default function AnnotationCanvas() {
 
   const {
     isDrawing, currentPolygon, addPoint, activeImage,
-    hideAnnotations, activeTool,
+    hideAnnotations, activeTool: _activeTool,
     currentVideoTime, setCurrentVideoTime,
     seekTargetTime, setSeekTargetTime,
   } = useAnnotationStore();
@@ -119,7 +119,9 @@ export default function AnnotationCanvas() {
 
   // Reset media size when file changes
   useEffect(() => {
-    setMediaSize({ w: 0, h: 0 });
+    // Use a microtask to avoid synchronous setState inside the effect body
+    const id = requestAnimationFrame(() => setMediaSize({ w: 0, h: 0 }));
+    return () => cancelAnimationFrame(id);
   }, [image?.id]);
 
   if (!image) return null;

@@ -5,7 +5,7 @@ import { Trash2, Tag, Play } from 'lucide-react';
 import { useAnnotationStore } from '@/stores/annotationStore';
 import type { Point } from '@/types';
 import toast from 'react-hot-toast';
-import { format, parseISO } from 'date-fns';
+
 
 // ── Annotation Crop Thumbnail ──────────────────────────────────────────────
 

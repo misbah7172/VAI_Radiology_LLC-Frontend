@@ -163,7 +163,7 @@ export default function SearchResultsGrid({ results, query, isLoading, onNavigat
         <div style={{ fontSize: '32px' }}>🔍</div>
         <p style={{ fontSize: '15px', fontWeight: 600, color: '#e4e4f0', margin: 0 }}>No tasks found</p>
         <p style={{ fontSize: '13px', color: '#5a5a7a', margin: 0 }}>
-          No tasks match the tag <strong style={{ color: '#a78bfa' }}>"{query}"</strong>
+          No tasks match the tag <strong style={{ color: '#a78bfa' }}>&ldquo;{query}&rdquo;</strong>
         </p>
       </div>
     );
@@ -173,7 +173,7 @@ export default function SearchResultsGrid({ results, query, isLoading, onNavigat
     <div style={{ padding: '20px 28px' }}>
       <p style={{ fontSize: '12px', color: '#5a5a7a', marginBottom: '16px', fontWeight: 500 }}>
         <span style={{ color: '#a78bfa', fontWeight: 700 }}>{results.length}</span> task{results.length !== 1 ? 's' : ''} matching tag{' '}
-        <span style={{ color: '#f4f4f7', fontStyle: 'italic' }}>"{query}"</span> — click any card to jump to its date
+        <span style={{ color: '#f4f4f7', fontStyle: 'italic' }}>&ldquo;{query}&rdquo;</span> — click any card to jump to its date
       </p>
       <div style={{
         display: 'grid',

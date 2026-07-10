@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import {
-  Pencil, MapPin, Save, RotateCcw, Loader2,
+  Pencil, Save, RotateCcw, Loader2,
   ChevronLeft, ChevronRight, Eye, EyeOff,
 } from 'lucide-react';
 import { useAnnotationStore, PRESET_CLASSES } from '@/stores/annotationStore';
@@ -14,7 +14,7 @@ export default function AnnotationToolbar() {
     selectedClass, setSelectedClass,
     selectedColor, setSelectedColor,
     hideAnnotations, setHideAnnotations,
-    activeTool, setActiveTool,
+    activeTool: _activeTool, setActiveTool,
     images, activeImageIndex, setActiveImageIndex,
     currentVideoTime,
   } = useAnnotationStore();

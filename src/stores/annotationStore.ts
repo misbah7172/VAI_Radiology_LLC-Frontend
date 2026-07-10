@@ -1,7 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
-import type { UploadedImage, Annotation, AnnotationCreate, Point } from '@/types';
+import type { UploadedImage, AnnotationCreate, Point } from '@/types';
 import { annotationsApi } from '@/lib/annotations';
 
 export const PRESET_CLASSES = [

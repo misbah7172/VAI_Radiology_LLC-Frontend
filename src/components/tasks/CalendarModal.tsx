@@ -57,7 +57,7 @@ export default function CalendarModal({ onClose }: CalendarModalProps) {
     try {
       const dateStr = format(parseISO(String(t.due_date)), 'yyyy-MM-dd');
       acc[dateStr] = (acc[dateStr] || 0) + 1;
-    } catch (e) {
+    } catch {
       // fallback if date parsing fails
     }
     return acc;

@@ -33,10 +33,11 @@ export default function LoginForm() {
       await login(email, password);
       toast.success('Welcome back!');
       router.push('/tasks');
-    } catch (err: any) {
+    } catch (err) {
+      const e = err as { response?: { data?: { non_field_errors?: string[]; detail?: string } } };
       const msg =
-        err?.response?.data?.non_field_errors?.[0] ||
-        err?.response?.data?.detail ||
+        e?.response?.data?.non_field_errors?.[0] ||
+        e?.response?.data?.detail ||
         'Invalid credentials. Please try again.';
       toast.error(msg);
     }

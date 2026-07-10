@@ -8,7 +8,7 @@ import type { Task } from '@/types';
 import { useTaskStore } from '@/stores/taskStore';
 import TaskModal from './TaskModal';
 import toast from 'react-hot-toast';
-import { format, parseISO, formatDistanceToNow, isPast, isFuture } from 'date-fns';
+import { parseISO, formatDistanceToNow, isPast } from 'date-fns';
 
 const PRIORITY_CONFIG = {
   low:    { label: 'Low',    color: '#6ee7b7' },

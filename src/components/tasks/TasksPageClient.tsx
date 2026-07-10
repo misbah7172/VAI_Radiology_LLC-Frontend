@@ -31,7 +31,7 @@ export default function TasksPageClient() {
 
   useEffect(() => {
     fetchTasks();
-  }, []);
+  }, [fetchTasks]);
 
   // Auto-clear highlight after 3s
   useEffect(() => {

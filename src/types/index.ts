@@ -46,7 +46,7 @@ export interface TaskCreate {
   position?: number;
 }
 
-export interface TaskUpdate extends Partial<TaskCreate> {}
+export type TaskUpdate = Partial<TaskCreate>;
 
 export interface ReorderPayload {
   tasks: Array<{
