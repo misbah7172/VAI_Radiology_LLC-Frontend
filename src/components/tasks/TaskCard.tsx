@@ -19,12 +19,12 @@ const PRIORITY_CONFIG = {
 // ── Kaggle-style Progress Timeline ──────────────────────────────────────────
 
 interface ProgressTimelineProps {
-  createdAt: string;   // ISO datetime — "Start" anchor
-  dueDate: string;     // YYYY-MM-DD — "Close" anchor
+  startDate: string;   // ISO datetime — "Start" anchor
+  dueDate: string;     // ISO datetime — "Close" anchor
 }
 
-function ProgressTimeline({ createdAt, dueDate }: ProgressTimelineProps) {
-  const start = parseISO(createdAt);
+function ProgressTimeline({ startDate, dueDate }: ProgressTimelineProps) {
+  const start = parseISO(startDate);
   const end   = parseISO(dueDate);
   const now   = new Date();
 
@@ -350,7 +350,7 @@ export default function TaskCard({ task, isDragging = false, isHighlighted = fal
         )}
 
         {/* ── Kaggle-style Progress Timeline ── */}
-        <ProgressTimeline createdAt={task.created_at} dueDate={task.due_date} />
+        <ProgressTimeline startDate={task.start_date} dueDate={task.due_date} />
 
         {/* Footer */}
         <div style={{

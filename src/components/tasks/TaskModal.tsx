@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { X, Loader2, Plus, Tag } from 'lucide-react';
 import { useTaskStore } from '@/stores/taskStore';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import type { Task, TaskStatus, TaskPriority } from '@/types';
 import toast from 'react-hot-toast';
 
@@ -25,6 +25,12 @@ const PRIORITIES: { value: TaskPriority; label: string }[] = [
   { value: 'high', label: 'High' },
 ];
 
+// Helper to format date for datetime-local input
+const formatForInput = (dateStr: string | Date) => {
+  const d = typeof dateStr === 'string' ? parseISO(dateStr) : dateStr;
+  return format(d, "yyyy-MM-dd'T'HH:mm");
+};
+
 export default function TaskModal({ mode, task, onClose }: TaskModalProps) {
   const { createTask, updateTask, selectedDate } = useTaskStore();
 
@@ -32,7 +38,22 @@ export default function TaskModal({ mode, task, onClose }: TaskModalProps) {
   const [description, setDescription] = useState(task?.description ?? '');
   const [status, setStatus] = useState<TaskStatus>(task?.status ?? 'todo');
   const [priority, setPriority] = useState<TaskPriority>(task?.priority ?? 'medium');
-  const [dueDate, setDueDate] = useState(task?.due_date ?? format(selectedDate, 'yyyy-MM-dd'));
+
+  // Initial States for datetime-local inputs
+  const getInitialStartDate = () => {
+    if (task?.start_date) return formatForInput(task.start_date);
+    return format(new Date(), "yyyy-MM-dd'T'HH:mm");
+  };
+
+  const getInitialDueDate = () => {
+    if (task?.due_date) return formatForInput(task.due_date);
+    const d = new Date(selectedDate);
+    d.setHours(23, 59, 0, 0);
+    return format(d, "yyyy-MM-dd'T'HH:mm");
+  };
+
+  const [startDate, setStartDate] = useState(getInitialStartDate());
+  const [dueDate, setDueDate] = useState(getInitialDueDate());
   const [tags, setTags] = useState<string[]>(task?.tags ?? []);
   const [tagInput, setTagInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -60,12 +81,32 @@ export default function TaskModal({ mode, task, onClose }: TaskModalProps) {
     if (!title.trim()) { setError('Title is required'); return; }
     setIsSubmitting(true);
     setError('');
+    
+    const isoStart = new Date(startDate).toISOString();
+    const isoDue = new Date(dueDate).toISOString();
+
     try {
       if (mode === 'create') {
-        await createTask({ title: title.trim(), description, status, priority, due_date: dueDate, tags });
+        await createTask({
+          title: title.trim(),
+          description,
+          status,
+          priority,
+          start_date: isoStart,
+          due_date: isoDue,
+          tags
+        });
         toast.success('Task created!');
       } else if (task) {
-        await updateTask(task.id, { title: title.trim(), description, status, priority, due_date: dueDate, tags });
+        await updateTask(task.id, {
+          title: title.trim(),
+          description,
+          status,
+          priority,
+          start_date: isoStart,
+          due_date: isoDue,
+          tags
+        });
         toast.success('Task updated!');
       }
       onClose();
@@ -227,18 +268,32 @@ export default function TaskModal({ mode, task, onClose }: TaskModalProps) {
             </div>
           </div>
 
-          {/* Due Date */}
-          <div>
-            <label style={labelStyle}>Due Date</label>
-            <input
-              id="task-date-input"
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              onFocus={() => setFocusedField('date')}
-              onBlur={() => setFocusedField(null)}
-              style={{ ...inputStyle('date'), colorScheme: 'dark' } as React.CSSProperties}
-            />
+          {/* Start Date & Time + Due Date & Time picker */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div>
+              <label style={labelStyle}>Start Date & Time</label>
+              <input
+                id="task-start-date-input"
+                type="datetime-local"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                onFocus={() => setFocusedField('start_date')}
+                onBlur={() => setFocusedField(null)}
+                style={{ ...inputStyle('start_date'), colorScheme: 'dark' } as React.CSSProperties}
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>Due Date & Time</label>
+              <input
+                id="task-due-date-input"
+                type="datetime-local"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                onFocus={() => setFocusedField('due_date')}
+                onBlur={() => setFocusedField(null)}
+                style={{ ...inputStyle('due_date'), colorScheme: 'dark' } as React.CSSProperties}
+              />
+            </div>
           </div>
 
           {/* Tags */}

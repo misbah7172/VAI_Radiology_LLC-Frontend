@@ -27,7 +27,8 @@ export interface Task {
   description: string;
   status: TaskStatus;
   priority: TaskPriority;
-  due_date: string; // YYYY-MM-DD
+  start_date: string; // ISO Datetime string
+  due_date: string; // ISO Datetime string
   tags: string[];
   position: number;
   created_at: string;
@@ -39,7 +40,8 @@ export interface TaskCreate {
   description?: string;
   status: TaskStatus;
   priority: TaskPriority;
-  due_date: string;
+  start_date: string; // ISO Datetime string
+  due_date: string; // ISO Datetime string
   tags?: string[];
   position?: number;
 }
