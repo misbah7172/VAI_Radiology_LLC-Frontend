@@ -33,4 +33,12 @@ export const tasksApi = {
     });
     return data;
   },
+
+  listByMonth: async (month: string): Promise<PaginatedResponse<Task>> => {
+    // month = 'YYYY-MM'
+    const { data } = await api.get<PaginatedResponse<Task>>('/api/tasks/', {
+      params: { month },
+    });
+    return data;
+  },
 };

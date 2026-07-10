@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { Plus, Search, X } from 'lucide-react';
+import { Plus, Search, X, Calendar } from 'lucide-react';
 import { useTaskStore } from '@/stores/taskStore';
 import { tasksApi } from '@/lib/tasks';
 import type { Task } from '@/types';
@@ -10,6 +10,7 @@ import DateSelector from './DateSelector';
 import Board from './Board';
 import TaskModal from './TaskModal';
 import SearchResultsGrid from './SearchResultsGrid';
+import CalendarModal from './CalendarModal';
 
 export default function TasksPageClient() {
   const { fetchTasks, setSelectedDate } = useTaskStore();
@@ -23,6 +24,7 @@ export default function TasksPageClient() {
   const [isSearchMode, setIsSearchMode] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [highlightedTaskId, setHighlightedTaskId] = useState<number | null>(null);
+  const [showCalendar, setShowCalendar] = useState(false);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -172,6 +174,38 @@ export default function TasksPageClient() {
             )}
           </div>
 
+          {/* Calendar Toggle Button */}
+          <button
+            id="toggle-calendar-btn"
+            onClick={() => setShowCalendar(true)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '36px',
+              height: '36px',
+              borderRadius: '8px',
+              border: '1px solid #232332',
+              backgroundColor: '#181822',
+              color: '#8888a8',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+            title="Open Task Calendar"
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = 'rgba(124,58,237,0.45)';
+              e.currentTarget.style.color = '#a78bfa';
+              e.currentTarget.style.boxShadow = '0 0 10px rgba(124,58,237,0.15)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = '#232332';
+              e.currentTarget.style.color = '#8888a8';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+          >
+            <Calendar style={{ width: '15px', height: '15px' }} />
+          </button>
+
           <DateSelector />
           <button
             id="add-task-btn"
@@ -222,11 +256,17 @@ export default function TasksPageClient() {
         )}
       </div>
 
-      {/* Modal */}
+      {/* Modals */}
       {showModal && (
         <TaskModal
           mode="create"
           onClose={() => setShowModal(false)}
+        />
+      )}
+
+      {showCalendar && (
+        <CalendarModal
+          onClose={() => setShowCalendar(false)}
         />
       )}
     </div>
