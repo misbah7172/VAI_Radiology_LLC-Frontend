@@ -15,7 +15,8 @@ export default function AnnotationToolbar() {
     selectedColor, setSelectedColor,
     hideAnnotations, setHideAnnotations,
     activeTool: _activeTool, setActiveTool,
-    images, activeImageIndex, setActiveImageIndex,
+    activeImageIndex, setActiveImageIndex,
+    activeImage, activeSet,
     currentVideoTime,
   } = useAnnotationStore();
 
@@ -24,8 +25,8 @@ export default function AnnotationToolbar() {
   const [inputFocused, setInputFocused] = useState(false);
   const [customLabel, setCustomLabel] = useState('');
 
-  const image = images[activeImageIndex];
-  const totalImages = images.length;
+  const image = activeImage();
+  const totalImages = activeSet()?.images.length ?? 0;
 
   const isVideo = (url: string) => {
     const ext = url?.split('.').pop()?.toLowerCase();

@@ -87,7 +87,16 @@ export interface UploadedImage {
   file: string;
   file_url: string;
   uploaded_at: string;
+  image_set?: number;
   annotations: Annotation[];
+}
+
+export interface ImageSet {
+  id: number;
+  name: string;
+  created_at: string;
+  updated_at: string;
+  images: UploadedImage[];
 }
 
 // ─── API ─────────────────────────────────────────────────────────────────────

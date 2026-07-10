@@ -160,8 +160,8 @@ export function AnnotationThumbnail({ fileUrl, polygonData, frameTime, isVideo }
 // ── Annotation List ─────────────────────────────────────────────────────────
 
 export default function AnnotationList() {
-  const { images, activeImageIndex, deleteAnnotation, setSeekTargetTime } = useAnnotationStore();
-  const image = images[activeImageIndex];
+  const { activeImage, deleteAnnotation, setSeekTargetTime } = useAnnotationStore();
+  const image = activeImage();
   const [hoveredId, setHoveredId] = useState<number | null>(null);
   const [deleteHoveredId, setDeleteHoveredId] = useState<number | null>(null);
 
