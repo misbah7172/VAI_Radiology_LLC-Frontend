@@ -1,19 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useAnnotationStore } from '@/stores/annotationStore';
 import ImageUploader from './ImageUploader';
 import ImageCarousel from './ImageCarousel';
-import AnnotationCanvas from './AnnotationCanvas';
-import AnnotationToolbar from './AnnotationToolbar';
-import AnnotationList from './AnnotationList';
-import ComparisonGrid from './ComparisonGrid';
-
-type CenterView = 'annotate' | 'compare';
+import MPRWorkspace from './mpr/MPRWorkspace';
 
 export default function AnnotatePageClient() {
-  const { fetchSets, imageSets, isLoading, gridSetIds } = useAnnotationStore();
-  const [centerView, setCenterView] = useState<CenterView>('annotate');
+  const { fetchSets, imageSets, isLoading } = useAnnotationStore();
 
   useEffect(() => {
     fetchSets();
@@ -21,14 +15,14 @@ export default function AnnotatePageClient() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-      {/* Header */}
+      {/* ── Header ──────────────────────────────────────────────────────────── */}
       <div
         style={{
           display: 'flex',
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '20px 32px',
+          padding: '16px 28px',
           borderBottom: '1px solid #1a1a26',
           background: '#111116',
           flexShrink: 0,
@@ -38,148 +32,96 @@ export default function AnnotatePageClient() {
       >
         <div>
           <h1 style={{
-            fontSize: '26px',
+            fontSize: '22px',
             fontWeight: 700,
             letterSpacing: '-0.025em',
             color: '#f4f4f7',
             margin: 0,
             lineHeight: 1.1,
           }}>
-            Image &amp; Video Annotation
+            Multi-Planar Viewer
           </h1>
-          <p style={{ fontSize: '13px', color: '#63637e', marginTop: '4px' }}>
-            Draw polygons to annotate medical images or video files
+          <p style={{ fontSize: '12px', color: '#63637e', marginTop: '3px' }}>
+            Drag image sets from sidebar → viewer panels · Scroll to navigate slices
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          {/* Center view tabs */}
-          <div style={{
-            display: 'flex',
-            borderRadius: '8px',
-            border: '1px solid #232332',
-            overflow: 'hidden',
-            backgroundColor: '#0c0c11',
-          }}>
-            {(['annotate', 'compare'] as CenterView[]).map((view) => (
-              <button
-                key={view}
-                onClick={() => setCenterView(view)}
-                style={{
-                  padding: '7px 16px',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  fontFamily: 'inherit',
-                  border: 'none',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                  backgroundColor: centerView === view ? '#7c3aed' : 'transparent',
-                  color: centerView === view ? '#ffffff' : '#8888a8',
-                  textTransform: 'capitalize',
-                }}
-              >
-                {view === 'compare'
-                  ? `Compare${gridSetIds.length > 0 ? ` (${gridSetIds.length})` : ''}`
-                  : 'Annotate'}
-              </button>
-            ))}
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <ImageUploader />
         </div>
       </div>
 
-      {/* Main content */}
+      {/* ── Main content ────────────────────────────────────────────────────── */}
       {isLoading ? (
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#08080c' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
-            <div
-              style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '50%',
-                border: '2px solid #7c3aed',
-                borderTopColor: 'transparent',
-                animation: 'spin 0.8s linear infinite',
-              }}
-            />
-            <p style={{ fontSize: '13px', color: '#3d3d55' }}>
-              Loading media files…
-            </p>
-          </div>
-        </div>
-      ) : imageSets.length === 0 ? (
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#08080c', padding: '32px' }}>
-          <div style={{ textAlign: 'center', maxWidth: '360px' }}>
+        /* Loading spinner */
+        <div style={{
+          flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          backgroundColor: '#08080c',
+        }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px' }}>
             <div style={{
-              fontSize: '48px',
-              marginBottom: '20px',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '80px',
-              height: '80px',
-              borderRadius: '24px',
-              background: 'rgba(255,255,255,0.02)',
-              border: '1px solid rgba(255,255,255,0.04)',
-            }}>
-              📹
-            </div>
-            <h2 style={{ fontSize: '16px', fontWeight: 600, color: '#f4f4f7', marginBottom: '8px' }}>
-              No image sets yet
-            </h2>
-            <p style={{ fontSize: '13px', color: '#63637e', lineHeight: 1.5 }}>
-              Upload images or videos — they&apos;ll be grouped into a set automatically.
-              You can then drag sets into the comparison grid to view them side-by-side.
-            </p>
+              width: '32px', height: '32px', borderRadius: '50%',
+              border: '2px solid #7c3aed', borderTopColor: 'transparent',
+              animation: 'spin 0.8s linear infinite',
+            }} />
+            <p style={{ fontSize: '12px', color: '#3d3d55' }}>Loading series…</p>
           </div>
         </div>
       ) : (
-        <div style={{ display: 'flex', flex: 1, overflow: 'hidden', minHeight: 0, flexDirection: 'row' }} className="annotate-layout-container">
-          {/* Left: Sets sidebar */}
-          <div
-            style={{
-              width: '200px',
-              height: '100%',
+        /* ── Sidebar + MPR Workspace ─────────────────────────────────────── */
+        <div style={{ display: 'flex', flex: 1, overflow: 'hidden', minHeight: 0 }}>
+          {/* Left sidebar — image sets */}
+          <div style={{
+            width: '190px',
+            flexShrink: 0,
+            height: '100%',
+            overflow: 'hidden',
+            borderRight: '1px solid #1a1a26',
+            display: 'flex',
+            flexDirection: 'column',
+          }}>
+            {/* Sidebar header */}
+            <div style={{
+              padding: '10px 12px 8px',
+              borderBottom: '1px solid #1a1a26',
+              backgroundColor: '#0e0e14',
               flexShrink: 0,
-              overflow: 'hidden',
-              borderRight: '1px solid #1a1a26',
-            }}
-            className="annotate-carousel-sidebar"
-          >
-            <ImageCarousel />
-          </div>
+            }}>
+              <p style={{
+                fontSize: '9px', fontWeight: 700,
+                textTransform: 'uppercase', letterSpacing: '0.08em',
+                color: '#3d3d55', margin: 0,
+              }}>
+                Image Sets
+              </p>
+              <p style={{ fontSize: '8px', color: '#2a2a3a', margin: '3px 0 0' }}>
+                Drag a set → Axial or Sagittal panel
+              </p>
+            </div>
 
-          {/* Center: either Annotate canvas or Comparison Grid */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
-            {centerView === 'annotate' ? (
-              <>
-                <AnnotationToolbar />
-                <div style={{ flex: 1, overflow: 'hidden', position: 'relative', minHeight: '300px', backgroundColor: '#030303' }}>
-                  <AnnotationCanvas />
-                </div>
-              </>
+            {/* Empty state */}
+            {imageSets.length === 0 ? (
+              <div style={{
+                flex: 1, display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center',
+                gap: '10px', padding: '20px',
+              }}>
+                <span style={{ fontSize: '28px' }}>📁</span>
+                <p style={{ fontSize: '11px', color: '#2a2a3a', textAlign: 'center' }}>
+                  Upload images to create a series
+                </p>
+              </div>
             ) : (
-              <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
-                <ComparisonGrid />
+              <div style={{ flex: 1, overflow: 'hidden' }}>
+                <ImageCarousel />
               </div>
             )}
           </div>
 
-          {/* Right: annotation list — only visible in annotate mode */}
-          {centerView === 'annotate' && (
-            <div
-              style={{
-                width: '280px',
-                height: '100%',
-                flexShrink: 0,
-                overflow: 'hidden',
-                borderLeft: '1px solid #1a1a26',
-              }}
-              className="annotate-list-sidebar"
-            >
-              <AnnotationList />
-            </div>
-          )}
+          {/* MPR Workspace (Axial + Sagittal) */}
+          <div style={{ flex: 1, height: '100%', overflow: 'hidden', minWidth: 0 }}>
+            <MPRWorkspace />
+          </div>
         </div>
       )}
     </div>
