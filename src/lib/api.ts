@@ -54,4 +54,16 @@ api.interceptors.response.use(
   }
 );
 
+/**
+ * Utility to format an absolute image URL into a Next.js optimized image route.
+ * Keeps blob URLs, data URIs, and already optimized paths unchanged.
+ */
+export function getOptimizedImageUrl(url: string, width = 1080, quality = 75): string {
+  if (!url) return '';
+  if (url.startsWith('blob:') || url.startsWith('data:') || url.startsWith('/_next/')) {
+    return url;
+  }
+  return `/_next/image?url=${encodeURIComponent(url)}&w=${width}&q=${quality}`;
+}
+
 export default api;

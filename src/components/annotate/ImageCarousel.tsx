@@ -6,6 +6,7 @@ import { useAnnotationStore } from '@/stores/annotationStore';
 import toast from 'react-hot-toast';
 import type { ImageSet } from '@/types';
 import { annotationsApi } from '@/lib/annotations';
+import { getOptimizedImageUrl } from '@/lib/api';
 
 export default function ImageCarousel() {
   const {
@@ -170,7 +171,7 @@ export default function ImageCarousel() {
                   ) : (
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img
-                      src={coverImg.file_url}
+                      src={getOptimizedImageUrl(coverImg.file_url, 384, 75)}
                       alt={set.name}
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                     />

@@ -5,6 +5,7 @@ import {
 } from 'react';
 import { useMPRStore } from '@/stores/mprStore';
 import { buildWindowLUT, applyLUT } from '@/hooks/useWindowLevel';
+import { getOptimizedImageUrl } from '@/lib/api';
 import CrosshairOverlay from './CrosshairOverlay';
 import AnnotationLayerMPR from './AnnotationLayerMPR';
 import type { MPRPlane, NormalizedPoint, ViewerState } from '@/types/mpr';
@@ -72,7 +73,7 @@ export default function ViewerCanvas({ plane, onImgSizeChange, canvasRef }: Prop
   const v: ViewerState = viewers[plane];
   const imageSet = series[plane];
   const currentImage = imageSet?.images[v.sliceIndex] ?? null;
-  const currentUrl = currentImage?.file_url ?? null;
+  const currentUrl = currentImage ? getOptimizedImageUrl(currentImage.file_url, 1080, 85) : null;
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [canvasSize, setCanvasSize] = useState({ w: 4, h: 4 });

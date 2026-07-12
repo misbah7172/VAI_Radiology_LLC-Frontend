@@ -96,6 +96,7 @@ export interface ImageSet {
   name: string;
   created_at: string;
   updated_at: string;
+  metadata?: Record<string, any> | null;
   images: UploadedImage[];
 }
 
