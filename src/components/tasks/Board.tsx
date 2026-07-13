@@ -68,9 +68,9 @@ export default function Board({ highlightedTaskId }: BoardProps) {
 
   if (isLoading) {
     return (
-      <div style={{ display: 'flex', gap: '16px', height: '100%', padding: '20px 32px' }}>
+      <div className="task-board-grid">
         {COLUMNS.map((col) => (
-          <div key={col.id} style={{ flex: 1 }}>
+          <div key={col.id}>
             <div style={{
               height: '20px', width: '120px', marginBottom: '16px',
               backgroundColor: '#181822', borderRadius: '6px',
@@ -95,14 +95,7 @@ export default function Board({ highlightedTaskId }: BoardProps) {
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
-      <div style={{
-        display: 'flex',
-        gap: '14px',
-        height: '100%',
-        padding: '20px 32px',
-        overflowX: 'auto',
-        userSelect: 'none',
-      }}>
+      <div className="task-board-grid">
         {COLUMNS.map((col) => (
           <Column
             key={col.id}

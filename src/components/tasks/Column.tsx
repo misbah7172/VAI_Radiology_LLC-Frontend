@@ -21,20 +21,13 @@ export default function Column({ id, label, color, tasks, isOver, highlightedTas
   return (
     <div
       ref={setNodeRef}
+      className="task-board-column-card"
       style={{
-        display: 'flex',
-        flexDirection: 'column',
-        flex: 1,
-        minWidth: '280px',
-        maxWidth: '360px',
-        height: '100%',
         backgroundColor: isOver ? '#16162a' : '#111116',
         border: `1px solid ${isOver ? '#7c3aed40' : '#1a1a26'}`,
-        borderRadius: '12px',
         boxShadow: isOver
-          ? '0 0 0 1px rgba(124,58,237,0.2), 0 4px 20px -4px rgba(0,0,0,0.5)'
-          : '0 4px 20px -4px rgba(0,0,0,0.5)',
-        transition: 'all 0.2s ease',
+          ? '0 0 0 1px rgba(124,58,237,0.2), 0 4px 20px -4px rgba(0, 0, 0, 0.5)'
+          : '0 4px 20px -4px rgba(0, 0, 0, 0.5)',
       }}
     >
       {/* Column header */}
