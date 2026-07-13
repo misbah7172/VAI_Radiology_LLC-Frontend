@@ -1,17 +1,19 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { HelpCircle, PanelLeft, PanelLeftClose } from 'lucide-react';
+import { HelpCircle, PanelLeft, PanelLeftClose, PanelRight, PanelRightClose } from 'lucide-react';
 import { useAnnotationStore } from '@/stores/annotationStore';
 import ImageUploader from './ImageUploader';
 import ImageCarousel from './ImageCarousel';
 import MPRWorkspace from './mpr/MPRWorkspace';
 import UserGuideModal from './UserGuideModal';
+import AnnotationsSidebar from './mpr/AnnotationsSidebar';
 
 export default function AnnotatePageClient() {
   const { fetchSets, imageSets, isLoading } = useAnnotationStore();
   const [guideOpen, setGuideOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [annSidebarOpen, setAnnSidebarOpen] = useState(false);
 
   useEffect(() => {
     fetchSets();
@@ -51,11 +53,11 @@ export default function AnnotatePageClient() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          {/* Sidebar toggle (visible on all sizes) */}
+          {/* Left sidebar (image sets) toggle */}
           <button
             id="sidebar-toggle"
             onClick={() => setSidebarOpen((v) => !v)}
-            title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+            title={sidebarOpen ? 'Hide image sets sidebar' : 'Show image sets sidebar'}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: '36px', height: '36px', borderRadius: '8px',
@@ -68,6 +70,25 @@ export default function AnnotatePageClient() {
             {sidebarOpen
               ? <PanelLeftClose style={{ width: '16px', height: '16px' }} />
               : <PanelLeft style={{ width: '16px', height: '16px' }} />}
+          </button>
+
+          {/* Right annotations sidebar toggle */}
+          <button
+            id="ann-sidebar-toggle"
+            onClick={() => setAnnSidebarOpen((v) => !v)}
+            title={annSidebarOpen ? 'Hide annotations panel' : 'Show annotations panel'}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: '36px', height: '36px', borderRadius: '8px',
+              background: annSidebarOpen ? 'rgba(124,58,237,0.15)' : 'rgba(255,255,255,0.05)',
+              border: annSidebarOpen ? '1px solid rgba(124,58,237,0.4)' : '1px solid #232332',
+              color: annSidebarOpen ? '#a78bfa' : '#63637e',
+              cursor: 'pointer', transition: 'all 0.2s',
+            }}
+          >
+            {annSidebarOpen
+              ? <PanelRightClose style={{ width: '16px', height: '16px' }} />
+              : <PanelRight style={{ width: '16px', height: '16px' }} />}
           </button>
 
           <ImageUploader />
@@ -161,9 +182,21 @@ export default function AnnotatePageClient() {
             )}
           </div>
 
-          {/* MPR Workspace (Axial + Sagittal) */}
+          {/* MPR Workspace */}
           <div style={{ flex: 1, height: '100%', overflow: 'hidden', minWidth: 0 }}>
             <MPRWorkspace />
+          </div>
+
+          {/* Right sidebar — annotations list */}
+          <div style={{
+            width: annSidebarOpen ? '190px' : '0px',
+            flexShrink: 0,
+            height: '100%',
+            overflow: 'hidden',
+            borderLeft: annSidebarOpen ? '1px solid #1a1a26' : 'none',
+            transition: 'width 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+          }}>
+            <AnnotationsSidebar />
           </div>
         </div>
       )}

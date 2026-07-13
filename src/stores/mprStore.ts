@@ -5,9 +5,11 @@ import { nanoid } from 'nanoid';
 import type {
   MPRPlane, DrawingTool, ViewerState, MPRAnnotations,
   CrosshairState, AnnotationShape, NormalizedPoint, WindowPreset,
+  PolygonShape, CircleShape, RectangleShape,
 } from '@/types/mpr';
 import { DEFAULT_VIEWER_STATE } from '@/types/mpr';
-import type { ImageSet } from '@/types';
+import type { ImageSet, Annotation } from '@/types';
+import { annotationsApi } from '@/lib/annotations';
 
 export const MPR_PRESET_CLASSES = [
   { name: 'Tumor',      color: '#FF6B6B' },
@@ -17,6 +19,74 @@ export const MPR_PRESET_CLASSES = [
   { name: 'Background', color: '#A29BFE' },
   { name: 'Vessel',     color: '#55EFC4' },
 ];
+
+// ─── Shape ↔ Backend serialisation ───────────────────────────────────────────
+
+/**
+ * Convert a backend Annotation record back into an AnnotationShape for the MPR viewer.
+ * The shape type is encoded as a prefix in the label: e.g. "circle::Tumor".
+ */
+export function apiAnnotationToShape(ann: Annotation): AnnotationShape {
+  const sep = ann.label.indexOf('::');
+  const typeStr = sep >= 0 ? ann.label.slice(0, sep) : 'polygon';
+  const actualLabel = sep >= 0 ? ann.label.slice(sep + 2) : ann.label;
+  const validTypes = ['polygon', 'brush', 'circle', 'rectangle'];
+  const type = validTypes.includes(typeStr) ? typeStr : 'polygon';
+  const pts = ann.polygon_data;
+
+  if (type === 'circle') {
+    const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
+    const cy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
+    const radius = pts.reduce((s, p) => s + Math.sqrt((p.x - cx) ** 2 + (p.y - cy) ** 2), 0) / pts.length;
+    return { id: String(ann.id), type: 'circle', label: actualLabel, color: ann.color, cx, cy, radius };
+  }
+  if (type === 'rectangle') {
+    const xs = pts.map((p) => p.x);
+    const ys = pts.map((p) => p.y);
+    const x = Math.min(...xs), y = Math.min(...ys);
+    return { id: String(ann.id), type: 'rectangle', label: actualLabel, color: ann.color,
+      x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
+  }
+  return { id: String(ann.id), type: type as 'polygon' | 'brush', label: actualLabel, color: ann.color, points: pts };
+}
+
+/**
+ * Convert an AnnotationShape to the payload format expected by the backend.
+ * Shape type is encoded into the label field. Circles/rects become polygon approximations.
+ */
+function shapeToApiPayload(
+  shape: AnnotationShape,
+  imageId: number,
+  sliceIndex: number
+) {
+  let polygon_data: { x: number; y: number }[];
+  const encodedLabel = `${shape.type}::${shape.label}`;
+
+  if (shape.type === 'polygon' || shape.type === 'brush') {
+    const pts = (shape as PolygonShape).points || [];
+    polygon_data = pts.length >= 3
+      ? pts
+      : [...pts, ...Array(3 - pts.length).fill({ x: 0, y: 0 })];
+  } else if (shape.type === 'circle') {
+    const c = shape as CircleShape;
+    // Approximate circle as 16-point polygon
+    polygon_data = Array.from({ length: 16 }, (_, i) => {
+      const angle = (i / 16) * Math.PI * 2;
+      return { x: c.cx + Math.cos(angle) * c.radius, y: c.cy + Math.sin(angle) * c.radius };
+    });
+  } else {
+    const r = shape as RectangleShape;
+    // Rectangle → 4 corners
+    polygon_data = [
+      { x: r.x, y: r.y },
+      { x: r.x + r.w, y: r.y },
+      { x: r.x + r.w, y: r.y + r.h },
+      { x: r.x, y: r.y + r.h },
+    ];
+  }
+
+  return { image: imageId, label: encodedLabel, color: shape.color, polygon_data, frame_time: sliceIndex };
+}
 
 // ─── Helper: empty annotations ────────────────────────────────────────────────
 function emptyAnnotations(): MPRAnnotations {
@@ -72,8 +142,8 @@ export interface MPRStore {
 
   // Annotations
   mprAnnotations: MPRAnnotations;
-  commitAnnotation: (plane: MPRPlane, sliceIndex: number) => void;
-  removeAnnotation: (plane: MPRPlane, sliceIndex: number, id: string) => void;
+  commitAnnotation: (plane: MPRPlane, sliceIndex: number) => Promise<void>;
+  removeAnnotation: (plane: MPRPlane, sliceIndex: number, id: string) => Promise<void>;
   clearSliceAnnotations: (plane: MPRPlane, sliceIndex: number) => void;
 
   // Undo / Redo (full annotation snapshot per action)
@@ -93,14 +163,29 @@ export interface MPRStore {
 export const useMPRStore = create<MPRStore>()((set, get) => ({
   series: { axial: null, sagittal: null, coronal: null },
 
-  assignSeries: (plane, imageSet) =>
+  assignSeries: (plane, imageSet) => {
+    // Build mprAnnotations from existing backend annotations embedded in the imageSet
+    const newSliceAnnotations: Record<number, AnnotationShape[]> = {};
+    if (imageSet) {
+      imageSet.images.forEach((img, sliceIndex) => {
+        if (img.annotations && img.annotations.length > 0) {
+          newSliceAnnotations[sliceIndex] = img.annotations.map(apiAnnotationToShape);
+        }
+      });
+    }
     set((s) => ({
       series: { ...s.series, [plane]: imageSet },
       viewers: {
         ...s.viewers,
-        [plane]: { ...DEFAULT_VIEWER_STATE }, // reset viewer when series changes
+        [plane]: { ...DEFAULT_VIEWER_STATE },
       },
-    })),
+      // Merge in loaded annotations for this plane, keep other planes intact
+      mprAnnotations: {
+        ...s.mprAnnotations,
+        [plane]: newSliceAnnotations,
+      },
+    }));
+  },
 
   viewers: emptyViewers(),
 
@@ -251,8 +336,8 @@ export const useMPRStore = create<MPRStore>()((set, get) => ({
   // ── Annotations ───────────────────────────────────────────────────────────
   mprAnnotations: emptyAnnotations(),
 
-  commitAnnotation: (plane, sliceIndex) => {
-    const { viewers, mprAnnotations, selectedClass, selectedColor } = get();
+  commitAnnotation: async (plane, sliceIndex) => {
+    const { viewers, mprAnnotations, selectedClass, selectedColor, series } = get();
     const v = viewers[plane];
     const pts = v.inProgressPoints;
     const start = v.inProgressStart;
@@ -307,6 +392,8 @@ export const useMPRStore = create<MPRStore>()((set, get) => ({
     // Push to undo stack before mutating
     const snapshot = JSON.parse(JSON.stringify(mprAnnotations)) as MPRAnnotations;
     const existing = mprAnnotations[plane][sliceIndex] ?? [];
+
+    // Optimistically add to local state immediately for responsive UI
     const next: MPRAnnotations = {
       ...mprAnnotations,
       [plane]: {
@@ -314,19 +401,46 @@ export const useMPRStore = create<MPRStore>()((set, get) => ({
         [sliceIndex]: [...existing, shape],
       },
     };
-
     set((s) => ({
       mprAnnotations: next,
       undoStack: [...s.undoStack.slice(-49), snapshot],
       redoStack: [],
     }));
     get().clearInProgress(plane);
+
+    // Persist to backend — replace the temp nanoid with the real DB id
+    const imageSet = series[plane];
+    const image = imageSet?.images[sliceIndex];
+    if (image) {
+      try {
+        const payload = shapeToApiPayload(shape, image.id, sliceIndex);
+        const saved = await annotationsApi.createAnnotation(payload);
+        // Replace nanoid with backend integer id so future deletes work
+        set((s) => {
+          const sliceShapes = s.mprAnnotations[plane][sliceIndex] ?? [];
+          return {
+            mprAnnotations: {
+              ...s.mprAnnotations,
+              [plane]: {
+                ...s.mprAnnotations[plane],
+                [sliceIndex]: sliceShapes.map((sh) =>
+                  sh.id === shape!.id ? { ...sh, id: String(saved.id) } : sh
+                ),
+              },
+            },
+          };
+        });
+      } catch (err) {
+        console.error('Failed to persist annotation to backend:', err);
+      }
+    }
   },
 
-  removeAnnotation: (plane, sliceIndex, id) => {
+  removeAnnotation: async (plane, sliceIndex, id) => {
     const { mprAnnotations } = get();
     const snapshot = JSON.parse(JSON.stringify(mprAnnotations)) as MPRAnnotations;
     const existing = mprAnnotations[plane][sliceIndex] ?? [];
+    // Remove from local state immediately
     set((s) => ({
       mprAnnotations: {
         ...s.mprAnnotations,
@@ -338,6 +452,15 @@ export const useMPRStore = create<MPRStore>()((set, get) => ({
       undoStack: [...s.undoStack.slice(-49), snapshot],
       redoStack: [],
     }));
+    // Persist deletion — id is the backend integer id as string
+    const numId = parseInt(id);
+    if (!isNaN(numId)) {
+      try {
+        await annotationsApi.deleteAnnotation(numId);
+      } catch (err) {
+        console.error('Failed to delete annotation from backend:', err);
+      }
+    }
   },
 
   clearSliceAnnotations: (plane, sliceIndex) => {

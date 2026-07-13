@@ -31,7 +31,7 @@ export default function ViewerBottomToolbar({ plane, canvasRef, imgWidth, imgHei
   const v = viewers[plane];
   const [savingHov, setSavingHov] = useState(false);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const { sliceIndex, inProgressPoints, activeTool } = v;
     if (
       (activeTool === 'pencil' || activeTool === 'brush') && inProgressPoints.length < 2
@@ -39,7 +39,7 @@ export default function ViewerBottomToolbar({ plane, canvasRef, imgWidth, imgHei
       toast.error('Draw at least 2 points');
       return;
     }
-    commitAnnotation(plane, sliceIndex);
+    await commitAnnotation(plane, sliceIndex);
     toast.success('Annotation saved!');
   };
 
