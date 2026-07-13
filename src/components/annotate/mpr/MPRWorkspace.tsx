@@ -3,10 +3,122 @@
 import { useState, useCallback, useEffect } from 'react';
 import ViewerPanel from './ViewerPanel';
 import ImageMetadataPanel from './ImageMetadataPanel';
+import { useMPRStore, MPR_PRESET_CLASSES } from '@/stores/mprStore';
 import { PLANE_COLORS, PLANE_LABELS } from '@/types/mpr';
 import type { MPRPlane } from '@/types/mpr';
 
+// ── Naming dialog extracted as its own component so state is initialised
+// from props at mount time, avoiding setState-in-effect lint errors.
+interface NamingDialogProps {
+  defaultName: string;
+  defaultCategory: string;
+  onSave: (name: string, category: string) => void;
+  onCancel: () => void;
+}
+
+function AnnotationNamingDialog({ defaultName, defaultCategory, onSave, onCancel }: NamingDialogProps) {
+  const [name, setName] = useState(defaultName);
+  const [category, setCategory] = useState(defaultCategory);
+
+  return (
+    <div style={{
+      position: 'absolute', inset: 0, zIndex: 999,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      backgroundColor: 'rgba(5, 5, 8, 0.75)',
+      backdropFilter: 'blur(6px)',
+    }}>
+      <div style={{
+        width: '320px', backgroundColor: '#0d0d14',
+        border: '1px solid #232332', borderRadius: '12px',
+        padding: '18px',
+        boxShadow: '0 20px 25px -5px rgba(0,0,0,0.5), 0 10px 10px -5px rgba(0,0,0,0.4)',
+        display: 'flex', flexDirection: 'column', gap: '14px',
+      }}>
+        <div>
+          <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#f4f4f7' }}>
+            Configure Annotation Mark
+          </h3>
+          <p style={{ margin: '3px 0 0', fontSize: '11px', color: '#63637e' }}>
+            Name and categorize your completed drawing.
+          </p>
+        </div>
+
+        {/* Name input */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+          <label style={{ fontSize: '11px', fontWeight: 600, color: '#a0a0b2' }}>Annotation Name</label>
+          <input
+            autoFocus
+            type="text"
+            placeholder="e.g. Tumor A"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            style={{
+              backgroundColor: '#181822', border: '1px solid #232332',
+              color: '#f4f4f7', fontSize: '12px',
+              padding: '7px 10px', borderRadius: '6px', outline: 'none',
+            }}
+          />
+        </div>
+
+        {/* Category input */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+          <label style={{ fontSize: '11px', fontWeight: 600, color: '#a0a0b2' }}>Category</label>
+          <input
+            type="text"
+            list="mpr-category-presets"
+            placeholder="Select or type category..."
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            style={{
+              backgroundColor: '#181822', border: '1px solid #232332',
+              color: '#f4f4f7', fontSize: '12px',
+              padding: '7px 10px', borderRadius: '6px', outline: 'none',
+            }}
+          />
+          <datalist id="mpr-category-presets">
+            {MPR_PRESET_CLASSES.map((c) => (
+              <option key={c.name} value={c.name} />
+            ))}
+          </datalist>
+        </div>
+
+        {/* Action buttons */}
+        <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+          <button
+            onClick={onCancel}
+            style={{
+              flex: 1, padding: '8px', borderRadius: '6px',
+              border: '1px solid #232332', backgroundColor: 'rgba(255,255,255,0.02)',
+              color: '#a0a0b2', fontSize: '12px', fontWeight: 600,
+              cursor: 'pointer', transition: 'all 0.15s',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.02)'; }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => onSave(name.trim() || 'unnamed', category.trim() || 'General')}
+            style={{
+              flex: 1, padding: '8px', borderRadius: '6px',
+              border: 'none', backgroundColor: '#7c3aed',
+              color: '#ffffff', fontSize: '12px', fontWeight: 600,
+              cursor: 'pointer', transition: 'all 0.15s',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#6d28d9'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#7c3aed'; }}
+          >
+            Save Mark
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function MPRWorkspace() {
+  const { pendingAnnotation, savePendingAnnotation, cancelPendingAnnotation } = useMPRStore();
+
   // Track separator positions (% from left and top)
   const [splitX, setSplitX] = useState(50);
   const [splitY, setSplitY] = useState(50);
@@ -281,6 +393,27 @@ export default function MPRWorkspace() {
           <ImageMetadataPanel />
         </div>
       </div>
+
+      {/* ── Naming Dialog (keyed so it re-mounts fresh on each new annotation) */}
+      {pendingAnnotation && (() => {
+        const planeStr = PLANE_LABELS[pendingAnnotation.plane];
+        const sliceNum = pendingAnnotation.sliceIndex + 1;
+        const toolStr = pendingAnnotation.shape.type;
+        const existingCount = Object.values(useMPRStore.getState().mprAnnotations[pendingAnnotation.plane])
+          .reduce((sum, shapes) => sum + shapes.length, 0);
+        const defaultName = `${planeStr} Slice ${sliceNum} ${toolStr} ${existingCount + 1}`;
+        const defaultCategory = useMPRStore.getState().selectedClass || 'Tumor';
+
+        return (
+          <AnnotationNamingDialog
+            key={pendingAnnotation.shape.id}
+            defaultName={defaultName}
+            defaultCategory={defaultCategory}
+            onSave={savePendingAnnotation}
+            onCancel={cancelPendingAnnotation}
+          />
+        );
+      })()}
     </div>
   );
 }

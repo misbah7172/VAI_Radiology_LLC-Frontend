@@ -44,8 +44,13 @@ export type AnnotationShapeType = 'polygon' | 'circle' | 'rectangle' | 'brush';
 export interface BaseAnnotationShape {
   id: string;
   type: AnnotationShapeType;
+  /** Display label (set from selected preset class) */
   label: string;
   color: string;
+  /** User-supplied name for this specific mark (e.g. "Tumor A") */
+  name?: string;
+  /** Category from the naming dialog (e.g. "Tumor", "Lesion") */
+  category?: string;
 }
 
 export interface PolygonShape extends BaseAnnotationShape {

@@ -146,6 +146,15 @@ export interface MPRStore {
   removeAnnotation: (plane: MPRPlane, sliceIndex: number, id: string) => Promise<void>;
   clearSliceAnnotations: (plane: MPRPlane, sliceIndex: number) => void;
 
+  // Pending naming dialog
+  pendingAnnotation: {
+    plane: MPRPlane;
+    sliceIndex: number;
+    shape: AnnotationShape;
+  } | null;
+  savePendingAnnotation: (name: string, category: string) => Promise<void>;
+  cancelPendingAnnotation: () => void;
+
   // Undo / Redo (full annotation snapshot per action)
   undoStack: MPRAnnotations[];
   redoStack: MPRAnnotations[];
@@ -337,7 +346,7 @@ export const useMPRStore = create<MPRStore>()((set, get) => ({
   mprAnnotations: emptyAnnotations(),
 
   commitAnnotation: async (plane, sliceIndex) => {
-    const { viewers, mprAnnotations, selectedClass, selectedColor, series } = get();
+    const { viewers, selectedClass, selectedColor } = get();
     const v = viewers[plane];
     const pts = v.inProgressPoints;
     const start = v.inProgressStart;
@@ -389,33 +398,64 @@ export const useMPRStore = create<MPRStore>()((set, get) => ({
 
     if (!shape) { get().clearInProgress(plane); return; }
 
-    // Push to undo stack before mutating
+    // Intercept: Set pending annotation to open the naming dialog overlay
+    set({
+      pendingAnnotation: {
+        plane,
+        sliceIndex,
+        shape,
+      },
+    });
+    get().clearInProgress(plane);
+  },
+
+  pendingAnnotation: null,
+
+  savePendingAnnotation: async (name, category) => {
+    const pending = get().pendingAnnotation;
+    if (!pending) return;
+
+    const { plane, sliceIndex, shape } = pending;
+    const { mprAnnotations, series } = get();
+
+    // Look up color for the class, otherwise default to violet
+    const preset = MPR_PRESET_CLASSES.find((c) => c.name.toLowerCase() === category.toLowerCase());
+    const finalColor = preset?.color ?? '#7c3aed';
+
+    // Update shape label, category, name, and color
+    const updatedShape: AnnotationShape = {
+      ...shape,
+      label: name,
+      color: finalColor,
+      name,
+      category,
+    };
+
     const snapshot = JSON.parse(JSON.stringify(mprAnnotations)) as MPRAnnotations;
     const existing = mprAnnotations[plane][sliceIndex] ?? [];
 
-    // Optimistically add to local state immediately for responsive UI
     const next: MPRAnnotations = {
       ...mprAnnotations,
       [plane]: {
         ...mprAnnotations[plane],
-        [sliceIndex]: [...existing, shape],
+        [sliceIndex]: [...existing, updatedShape],
       },
     };
+
     set((s) => ({
       mprAnnotations: next,
       undoStack: [...s.undoStack.slice(-49), snapshot],
       redoStack: [],
+      pendingAnnotation: null,
     }));
-    get().clearInProgress(plane);
 
-    // Persist to backend — replace the temp nanoid with the real DB id
+    // Persist to backend
     const imageSet = series[plane];
     const image = imageSet?.images[sliceIndex];
     if (image) {
       try {
-        const payload = shapeToApiPayload(shape, image.id, sliceIndex);
+        const payload = shapeToApiPayload(updatedShape, image.id, sliceIndex);
         const saved = await annotationsApi.createAnnotation(payload);
-        // Replace nanoid with backend integer id so future deletes work
         set((s) => {
           const sliceShapes = s.mprAnnotations[plane][sliceIndex] ?? [];
           return {
@@ -424,7 +464,7 @@ export const useMPRStore = create<MPRStore>()((set, get) => ({
               [plane]: {
                 ...s.mprAnnotations[plane],
                 [sliceIndex]: sliceShapes.map((sh) =>
-                  sh.id === shape!.id ? { ...sh, id: String(saved.id) } : sh
+                  sh.id === updatedShape.id ? { ...sh, id: String(saved.id) } : sh
                 ),
               },
             },
@@ -434,6 +474,10 @@ export const useMPRStore = create<MPRStore>()((set, get) => ({
         console.error('Failed to persist annotation to backend:', err);
       }
     }
+  },
+
+  cancelPendingAnnotation: () => {
+    set({ pendingAnnotation: null });
   },
 
   removeAnnotation: async (plane, sliceIndex, id) => {

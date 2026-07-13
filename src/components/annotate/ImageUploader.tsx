@@ -47,8 +47,8 @@ export default function ImageUploader() {
       return;
     }
 
-    if (validFiles.some((f) => f.size > 100 * 1024 * 1024)) {
-      toast.error('Files must be under 100MB');
+    if (validFiles.some((f) => f.size > 500 * 1024 * 1024)) {
+      toast.error('Files must be under 500MB');
       return;
     }
 

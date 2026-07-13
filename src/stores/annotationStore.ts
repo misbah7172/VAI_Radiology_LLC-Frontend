@@ -115,14 +115,26 @@ export const useAnnotationStore = create<AnnotationState>()((set, get) => ({
   uploadImages: async (files: File[], setId?: number) => {
     set({ isUploading: true, error: null });
     try {
-      await annotationsApi.uploadImages(files, setId);
+      const BATCH_SIZE = 15;
+      let activeSetId = setId;
+
+      for (let i = 0; i < files.length; i += BATCH_SIZE) {
+        const batch = files.slice(i, i + BATCH_SIZE);
+        const uploaded = await annotationsApi.uploadImages(batch, activeSetId);
+        
+        // If we created a new set, extract the set ID from the first uploaded image to append subsequent batches
+        if (!activeSetId && uploaded.length > 0 && uploaded[0].image_set) {
+          activeSetId = uploaded[0].image_set;
+        }
+      }
+
       // Re-fetch sets to display the updated images list
       const res = await annotationsApi.listSets();
       const sets = res.results;
       
       // If we uploaded into a new set, activate the newly created one (highest ID).
       // Otherwise activate the specified setId.
-      let targetId = setId;
+      let targetId = activeSetId;
       if (!targetId && sets.length > 0) {
         const sorted = [...sets].sort((a, b) => b.id - a.id);
         targetId = sorted[0].id;
@@ -136,6 +148,7 @@ export const useAnnotationStore = create<AnnotationState>()((set, get) => ({
       });
     } catch {
       set({ error: 'Upload failed', isUploading: false });
+      throw new Error('Upload failed');
     }
   },
 
