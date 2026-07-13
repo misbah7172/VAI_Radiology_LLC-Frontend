@@ -7,18 +7,30 @@ import { useMPRStore, MPR_PRESET_CLASSES } from '@/stores/mprStore';
 import { PLANE_COLORS, PLANE_LABELS } from '@/types/mpr';
 import type { MPRPlane } from '@/types/mpr';
 
+// 24 curated annotation colors
+const ANNOTATION_COLORS = [
+  '#ef4444', '#f97316', '#f59e0b', '#eab308',
+  '#84cc16', '#22c55e', '#10b981', '#14b8a6',
+  '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6',
+  '#a855f7', '#ec4899', '#f43f5e', '#d946ef',
+  '#ffffff', '#e2e8f0', '#94a3b8', '#64748b',
+  '#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff',
+];
+
 // ── Naming dialog extracted as its own component so state is initialised
 // from props at mount time, avoiding setState-in-effect lint errors.
 interface NamingDialogProps {
   defaultName: string;
   defaultCategory: string;
-  onSave: (name: string, category: string) => void;
+  defaultColor: string;
+  onSave: (name: string, category: string, color: string) => void;
   onCancel: () => void;
 }
 
-function AnnotationNamingDialog({ defaultName, defaultCategory, onSave, onCancel }: NamingDialogProps) {
+function AnnotationNamingDialog({ defaultName, defaultCategory, defaultColor, onSave, onCancel }: NamingDialogProps) {
   const [name, setName] = useState(defaultName);
   const [category, setCategory] = useState(defaultCategory);
+  const [color, setColor] = useState(defaultColor);
 
   return (
     <div style={{
@@ -28,7 +40,7 @@ function AnnotationNamingDialog({ defaultName, defaultCategory, onSave, onCancel
       backdropFilter: 'blur(6px)',
     }}>
       <div style={{
-        width: '320px', backgroundColor: '#0d0d14',
+        width: '340px', backgroundColor: '#0d0d14',
         border: '1px solid #232332', borderRadius: '12px',
         padding: '18px',
         boxShadow: '0 20px 25px -5px rgba(0,0,0,0.5), 0 10px 10px -5px rgba(0,0,0,0.4)',
@@ -39,7 +51,7 @@ function AnnotationNamingDialog({ defaultName, defaultCategory, onSave, onCancel
             Configure Annotation Mark
           </h3>
           <p style={{ margin: '3px 0 0', fontSize: '11px', color: '#63637e' }}>
-            Name and categorize your completed drawing.
+            Name, categorize and choose a color for your mark.
           </p>
         </div>
 
@@ -82,6 +94,76 @@ function AnnotationNamingDialog({ defaultName, defaultCategory, onSave, onCancel
           </datalist>
         </div>
 
+        {/* ── Color picker ── */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <label style={{ fontSize: '11px', fontWeight: 600, color: '#a0a0b2' }}>Color</label>
+            {/* Custom color swatch + native picker */}
+            <label style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              fontSize: '10px', color: '#63637e', cursor: 'pointer',
+            }}>
+              <div style={{
+                width: '20px', height: '20px', borderRadius: '4px',
+                backgroundColor: color,
+                border: color === '#ffffff' ? '1px solid #3d3d55' : '2px solid rgba(255,255,255,0.25)',
+                boxShadow: `0 0 0 3px rgba(255,255,255,0.06)`,
+                flexShrink: 0,
+              }} />
+              Custom
+              <input
+                type="color"
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+                style={{ width: 0, height: 0, opacity: 0, position: 'absolute', pointerEvents: 'none' }}
+                tabIndex={-1}
+                ref={(el) => {
+                  // allow the label click to open the native picker
+                  if (el) el.style.pointerEvents = 'auto';
+                }}
+              />
+            </label>
+          </div>
+
+          {/* 24 preset swatches */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(8, 1fr)',
+            gap: '5px',
+          }}>
+            {ANNOTATION_COLORS.map((c) => (
+              <button
+                key={c}
+                title={c}
+                onClick={() => setColor(c)}
+                style={{
+                  width: '100%',
+                  aspectRatio: '1',
+                  borderRadius: '5px',
+                  backgroundColor: c,
+                  border: color === c
+                    ? '2px solid #ffffff'
+                    : c === '#ffffff' ? '1px solid #3d3d55' : '2px solid transparent',
+                  cursor: 'pointer',
+                  boxShadow: color === c ? `0 0 0 2px ${c}55` : 'none',
+                  transition: 'transform 0.1s, box-shadow 0.1s',
+                  padding: 0,
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.18)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+              />
+            ))}
+          </div>
+
+          {/* Live preview bar */}
+          <div style={{
+            height: '4px', borderRadius: '2px',
+            backgroundColor: color,
+            transition: 'background-color 0.2s',
+            boxShadow: `0 0 8px ${color}88`,
+          }} />
+        </div>
+
         {/* Action buttons */}
         <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
           <button
@@ -98,15 +180,14 @@ function AnnotationNamingDialog({ defaultName, defaultCategory, onSave, onCancel
             Cancel
           </button>
           <button
-            onClick={() => onSave(name.trim() || 'unnamed', category.trim() || 'General')}
+            onClick={() => onSave(name.trim() || 'unnamed', category.trim() || 'General', color)}
             style={{
               flex: 1, padding: '8px', borderRadius: '6px',
-              border: 'none', backgroundColor: '#7c3aed',
+              border: 'none', backgroundColor: color,
               color: '#ffffff', fontSize: '12px', fontWeight: 600,
-              cursor: 'pointer', transition: 'all 0.15s',
+              cursor: 'pointer', transition: 'background-color 0.2s',
+              textShadow: '0 1px 2px rgba(0,0,0,0.4)',
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#6d28d9'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#7c3aed'; }}
           >
             Save Mark
           </button>
@@ -403,12 +484,17 @@ export default function MPRWorkspace() {
           .reduce((sum, shapes) => sum + shapes.length, 0);
         const defaultName = `${planeStr} Slice ${sliceNum} ${toolStr} ${existingCount + 1}`;
         const defaultCategory = useMPRStore.getState().selectedClass || 'Tumor';
+        // Default color: match the preset class color, or fall back to first palette entry
+        const selectedClass = useMPRStore.getState().selectedClass;
+        const preset = MPR_PRESET_CLASSES.find((c) => c.name === selectedClass);
+        const defaultColor = preset?.color ?? ANNOTATION_COLORS[0];
 
         return (
           <AnnotationNamingDialog
             key={pendingAnnotation.shape.id}
             defaultName={defaultName}
             defaultCategory={defaultCategory}
+            defaultColor={defaultColor}
             onSave={savePendingAnnotation}
             onCancel={cancelPendingAnnotation}
           />

@@ -152,7 +152,7 @@ export interface MPRStore {
     sliceIndex: number;
     shape: AnnotationShape;
   } | null;
-  savePendingAnnotation: (name: string, category: string) => Promise<void>;
+  savePendingAnnotation: (name: string, category: string, color: string) => Promise<void>;
   cancelPendingAnnotation: () => void;
 
   // Undo / Redo (full annotation snapshot per action)
@@ -411,22 +411,18 @@ export const useMPRStore = create<MPRStore>()((set, get) => ({
 
   pendingAnnotation: null,
 
-  savePendingAnnotation: async (name, category) => {
+  savePendingAnnotation: async (name, category, color) => {
     const pending = get().pendingAnnotation;
     if (!pending) return;
 
     const { plane, sliceIndex, shape } = pending;
     const { mprAnnotations, series } = get();
 
-    // Look up color for the class, otherwise default to violet
-    const preset = MPR_PRESET_CLASSES.find((c) => c.name.toLowerCase() === category.toLowerCase());
-    const finalColor = preset?.color ?? '#7c3aed';
-
-    // Update shape label, category, name, and color
+    // Update shape label, category, name, and user-chosen color
     const updatedShape: AnnotationShape = {
       ...shape,
       label: name,
-      color: finalColor,
+      color,
       name,
       category,
     };
