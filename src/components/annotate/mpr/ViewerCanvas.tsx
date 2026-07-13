@@ -8,7 +8,7 @@ import { buildWindowLUT, applyLUT } from '@/hooks/useWindowLevel';
 import { getOptimizedImageUrl } from '@/lib/api';
 import CrosshairOverlay from './CrosshairOverlay';
 import AnnotationLayerMPR from './AnnotationLayerMPR';
-import type { MPRPlane, NormalizedPoint, ViewerState } from '@/types/mpr';
+import type { MPRPlane, NormalizedPoint, ViewerState, AnnotationShape } from '@/types/mpr';
 
 // ─── Module-level HTMLImageElement cache ──────────────────────────────────────
 // Using HTMLImageElement avoids fetch CORS issues — the browser handles
@@ -63,6 +63,55 @@ function applyWindowingToImg(
 }
 
 
+function findClickedAnnotation(
+  clickPt: { x: number; y: number },
+  shapes: AnnotationShape[]
+): AnnotationShape | null {
+  const threshold = 0.03; // proximity tolerance in normalized coordinates
+
+  for (const shape of shapes) {
+    if (shape.type === 'polygon' || shape.type === 'brush') {
+      const pts = shape.points || [];
+      // 1. Check vertex proximity
+      for (const p of pts) {
+        const dx = p.x - clickPt.x;
+        const dy = p.y - clickPt.y;
+        if (Math.sqrt(dx * dx + dy * dy) < threshold) {
+          return shape;
+        }
+      }
+      // 2. Point in polygon ray-casting test
+      let inside = false;
+      for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+        const xi = pts[i].x, yi = pts[i].y;
+        const xj = pts[j].x, yj = pts[j].y;
+        const intersect = ((yi > clickPt.y) !== (yj > clickPt.y))
+            && (clickPt.x < (xj - xi) * (clickPt.y - yi) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
+      }
+      if (inside) return shape;
+    } else if (shape.type === 'circle') {
+      const dx = clickPt.x - shape.cx!;
+      const dy = clickPt.y - shape.cy!;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (Math.abs(dist - shape.radius!) < threshold || dist <= shape.radius!) {
+        return shape;
+      }
+    } else if (shape.type === 'rectangle') {
+      const left = shape.x!;
+      const right = shape.x! + shape.w!;
+      const top = shape.y!;
+      const bottom = shape.y! + shape.h!;
+      if (clickPt.x >= left - threshold && clickPt.x <= right + threshold &&
+          clickPt.y >= top - threshold && clickPt.y <= bottom + threshold) {
+        return shape;
+      }
+    }
+  }
+  return null;
+}
+
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 interface Props {
   plane: MPRPlane;
@@ -75,7 +124,7 @@ export default function ViewerCanvas({ plane, onImgSizeChange, canvasRef }: Prop
   const {
     series, viewers, setZoom, deltaPan, setSlice, updateCrosshair,
     setActivePlane, addInProgressPoint, setInProgressStart,
-    commitAnnotation, setWindowLevel,
+    commitAnnotation, setWindowLevel, removeAnnotation, mprAnnotations,
   } = useMPRStore();
 
   const v: ViewerState = viewers[plane];
@@ -270,7 +319,17 @@ export default function ViewerCanvas({ plane, onImgSizeChange, canvasRef }: Prop
       const tool = v.activeTool;
       if (!tool) { panDragRef.current = { startX: e.clientX, startY: e.clientY }; return; }
 
-      if (tool === 'eraser') return;
+      if (tool === 'eraser') {
+        const pt = mouseToNorm(e);
+        if (pt) {
+          const sliceAnnotations = mprAnnotations[plane][v.sliceIndex] ?? [];
+          const clickedShape = findClickedAnnotation(pt, sliceAnnotations);
+          if (clickedShape) {
+            removeAnnotation(plane, v.sliceIndex, clickedShape.id);
+          }
+        }
+        return;
+      }
 
       if (tool === 'pencil') {
         const pt = mouseToNorm(e);
@@ -297,8 +356,8 @@ export default function ViewerCanvas({ plane, onImgSizeChange, canvasRef }: Prop
       // Default: pan
       panDragRef.current = { startX: e.clientX, startY: e.clientY };
     }
-  }, [plane, v.activeTool, v.windowWidth, v.windowLevel, mouseToNorm,
-    setActivePlane, addInProgressPoint, setInProgressStart]);
+  }, [plane, v.activeTool, v.windowWidth, v.windowLevel, v.sliceIndex, mouseToNorm,
+    setActivePlane, addInProgressPoint, setInProgressStart, mprAnnotations, removeAnnotation]);
 
   // ── Mouse move ────────────────────────────────────────────────────────────
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
