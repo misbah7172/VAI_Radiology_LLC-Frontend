@@ -120,8 +120,13 @@ export const useAnnotationStore = create<AnnotationState>()((set, get) => ({
       const res = await annotationsApi.listSets();
       const sets = res.results;
       
-      // If we uploaded into a new set, activate it
-      const targetId = setId || (sets.length > 0 ? sets[0].id : null);
+      // If we uploaded into a new set, activate the newly created one (highest ID).
+      // Otherwise activate the specified setId.
+      let targetId = setId;
+      if (!targetId && sets.length > 0) {
+        const sorted = [...sets].sort((a, b) => b.id - a.id);
+        targetId = sorted[0].id;
+      }
       
       set({
         imageSets: sets,

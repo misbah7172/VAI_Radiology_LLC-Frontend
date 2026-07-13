@@ -6,14 +6,26 @@ import { useAnnotationStore } from '@/stores/annotationStore';
 import toast from 'react-hot-toast';
 
 export default function ImageUploader() {
-  const { uploadImages, isUploading } = useAnnotationStore();
+  const { uploadImages, isUploading, imageSets } = useAnnotationStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const [fileHovered, setFileHovered] = useState(false);
   const [folderHovered, setFolderHovered] = useState(false);
   const [isDragActive, setIsDragActive] = useState(false);
+  const [pendingFiles, setPendingFiles] = useState<File[] | null>(null);
 
-  // ── File validation ──────────────────────────────────────────────────────────
+  // ── Upload execution ────────────────────────────────────────────────────────
+  const doUpload = async (files: File[], setId?: number) => {
+    setPendingFiles(null);
+    try {
+      await uploadImages(files, setId);
+      toast.success(`${files.length} file(s) imported successfully!`);
+    } catch {
+      toast.error('Import failed. Please try again.');
+    }
+  };
+
+  // ── File validation + choice flow ────────────────────────────────────────────
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
 
@@ -40,19 +52,24 @@ export default function ImageUploader() {
       return;
     }
 
-    try {
-      await uploadImages(validFiles);
-      toast.success(`${validFiles.length} file(s) imported successfully!`);
-    } catch {
-      toast.error('Import failed. Please try again.');
+    // If sets exist, show choice. Otherwise upload immediately.
+    if (imageSets.length > 0) {
+      setPendingFiles(validFiles);
+    } else {
+      await doUpload(validFiles);
     }
   };
 
   // ── Drag & Drop Event Listeners ─────────────────────────────────────────────
   useEffect(() => {
     const handleDragOver = (e: DragEvent) => {
-      e.preventDefault();
-      setIsDragActive(true);
+      // Only show the import overlay when OS files are being dragged.
+      // Ignore internal sidebar-card drags (which carry text/plain, not Files).
+      const hasFiles = e.dataTransfer?.types?.includes('Files');
+      if (hasFiles) {
+        e.preventDefault();
+        setIsDragActive(true);
+      }
     };
 
     const handleDragLeave = (e: DragEvent) => {
@@ -65,8 +82,10 @@ export default function ImageUploader() {
     const handleDrop = (e: DragEvent) => {
       e.preventDefault();
       setIsDragActive(false);
-      if (e.dataTransfer?.files) {
-        handleFiles(e.dataTransfer.files);
+      // Only process if real files were dropped (not a sidebar card drag)
+      const files = e.dataTransfer?.files;
+      if (files && files.length > 0) {
+        handleFiles(files);
       }
     };
 
@@ -212,6 +231,116 @@ export default function ImageUploader() {
           <p style={{ color: '#a0aec0', fontSize: '13px', margin: 0, textAlign: 'center' }}>
             Supported formats: DICOM (.dcm), NIfTI (.nii, .nii.gz), NRRD, MetaImage (.mha, .mhd), ZIP, TIFF, BMP, GIF, PNG, JPG
           </p>
+        </div>
+      )}
+
+      {/* ── Pending Files: New Set vs Append Choice ────────────────────────── */}
+      {pendingFiles && (
+        <div style={{
+          position: 'fixed',
+          bottom: '24px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 10000,
+          width: 'min(560px, calc(100vw - 32px))',
+          backgroundColor: '#111118',
+          border: '1px solid #2a2a40',
+          borderRadius: '14px',
+          boxShadow: '0 24px 48px rgba(0,0,0,0.7), 0 0 0 1px rgba(124,58,237,0.12)',
+          overflow: 'hidden',
+          animation: 'slideUp 0.2s ease-out',
+        }}>
+          {/* Header */}
+          <div style={{
+            padding: '12px 16px',
+            borderBottom: '1px solid #1a1a26',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Upload style={{ width: '14px', height: '14px', color: '#a78bfa' }} />
+              <span style={{ fontSize: '13px', fontWeight: 600, color: '#f4f4f7' }}>
+                {pendingFiles.length} file{pendingFiles.length !== 1 ? 's' : ''} ready to import
+              </span>
+            </div>
+            <button
+              onClick={() => setPendingFiles(null)}
+              style={{
+                background: 'none', border: 'none', color: '#3d3d55',
+                cursor: 'pointer', fontSize: '16px', lineHeight: 1, padding: '0 2px',
+              }}
+            >✕</button>
+          </div>
+
+          {/* File name preview (up to 3) */}
+          <div style={{ padding: '8px 16px', borderBottom: '1px solid #1a1a26' }}>
+            {pendingFiles.slice(0, 3).map((f, i) => (
+              <p key={i} style={{ margin: '2px 0', fontSize: '11px', color: '#4a5568', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                📄 {f.name}
+              </p>
+            ))}
+            {pendingFiles.length > 3 && (
+              <p style={{ margin: '2px 0', fontSize: '10px', color: '#2a2a3a' }}>+{pendingFiles.length - 3} more…</p>
+            )}
+          </div>
+
+          {/* Action buttons */}
+          <div style={{ padding: '12px 16px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            {/* Add to most recent set */}
+            {imageSets.length > 0 && (() => {
+              const latest = [...imageSets].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+              return (
+                <button
+                  id="add-to-existing-set-btn"
+                  onClick={() => doUpload(pendingFiles, latest.id)}
+                  disabled={isUploading}
+                  style={{
+                    flex: 1, minWidth: '160px',
+                    padding: '9px 14px',
+                    borderRadius: '8px',
+                    border: '1px solid #3a3a55',
+                    background: '#181826',
+                    color: '#cbd5e1',
+                    fontSize: '12px', fontWeight: 600,
+                    cursor: isUploading ? 'not-allowed' : 'pointer',
+                    fontFamily: 'inherit',
+                    textAlign: 'left',
+                    transition: 'all 0.15s',
+                  }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#4a4a70'; (e.currentTarget as HTMLElement).style.backgroundColor = '#1e1e30'; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#3a3a55'; (e.currentTarget as HTMLElement).style.backgroundColor = '#181826'; }}
+                >
+                  <span style={{ display: 'block', fontSize: '10px', color: '#4a5568', marginBottom: '2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Add to existing set</span>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', maxWidth: '200px' }}>
+                    📂 {latest.name}
+                  </span>
+                </button>
+              );
+            })()}
+
+            {/* Create new set */}
+            <button
+              id="create-new-set-btn"
+              onClick={() => doUpload(pendingFiles)}
+              disabled={isUploading}
+              style={{
+                flex: 1, minWidth: '140px',
+                padding: '9px 14px',
+                borderRadius: '8px',
+                border: 'none',
+                background: 'linear-gradient(135deg, #7c3aed, #5b21b6)',
+                color: '#ffffff',
+                fontSize: '12px', fontWeight: 600,
+                cursor: isUploading ? 'not-allowed' : 'pointer',
+                fontFamily: 'inherit',
+                transition: 'all 0.15s',
+                boxShadow: '0 4px 12px -2px rgba(124,58,237,0.4)',
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'linear-gradient(135deg, #6d28d9, #4c1d95)'; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'linear-gradient(135deg, #7c3aed, #5b21b6)'; }}
+            >
+              ＋ Create New Set
+            </button>
+          </div>
         </div>
       )}
     </div>

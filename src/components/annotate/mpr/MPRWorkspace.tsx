@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import ViewerPanel from './ViewerPanel';
 import ImageMetadataPanel from './ImageMetadataPanel';
+import { PLANE_COLORS, PLANE_LABELS } from '@/types/mpr';
+import type { MPRPlane } from '@/types/mpr';
 
 export default function MPRWorkspace() {
   // Track separator positions (% from left and top)
@@ -10,6 +12,17 @@ export default function MPRWorkspace() {
   const [splitY, setSplitY] = useState(50);
   const [isDraggingX, setIsDraggingX] = useState(false);
   const [isDraggingY, setIsDraggingY] = useState(false);
+
+  // Responsive mobile state
+  const [isMobile, setIsMobile] = useState(false);
+  const [activeTab, setActiveTab] = useState<MPRPlane | 'info'>('axial');
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   // ── Resizable column splitter (Left/Right) ──────────────────────────────────
   const handleSplitterXMouseDown = useCallback((e: React.MouseEvent) => {
@@ -53,6 +66,59 @@ export default function MPRWorkspace() {
     window.addEventListener('mouseup', onUp);
   }, []);
 
+  const TABS: { id: MPRPlane | 'info'; label: string; color: string }[] = [
+    { id: 'axial',    label: PLANE_LABELS.axial,    color: PLANE_COLORS.axial },
+    { id: 'sagittal', label: PLANE_LABELS.sagittal, color: PLANE_COLORS.sagittal },
+    { id: 'coronal',  label: PLANE_LABELS.coronal,  color: PLANE_COLORS.coronal },
+    { id: 'info',     label: 'Info',                color: '#a78bfa' },
+  ];
+
+  // ── MOBILE TAB LAYOUT ──────────────────────────────────────────────────────
+  if (isMobile) {
+    return (
+      <div id="mpr-workspace" style={{
+        display: 'flex', flexDirection: 'column',
+        width: '100%', height: '100%',
+        overflow: 'hidden', backgroundColor: '#08080c',
+      }}>
+        {/* Tab bar */}
+        <div style={{
+          display: 'flex', flexShrink: 0,
+          borderBottom: '1px solid #1a1a26',
+          backgroundColor: '#0e0e14',
+        }}>
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              id={`tab-${tab.id}`}
+              onClick={() => setActiveTab(tab.id)}
+              style={{
+                flex: 1, padding: '10px 6px',
+                background: 'none', border: 'none', cursor: 'pointer',
+                fontSize: '11px', fontWeight: 600,
+                color: activeTab === tab.id ? tab.color : '#3d3d55',
+                borderBottom: activeTab === tab.id ? `2px solid ${tab.color}` : '2px solid transparent',
+                transition: 'all 0.15s',
+                letterSpacing: '0.03em',
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Active panel */}
+        <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
+          {activeTab === 'axial' && <ViewerPanel plane="axial" />}
+          {activeTab === 'sagittal' && <ViewerPanel plane="sagittal" />}
+          {activeTab === 'coronal' && <ViewerPanel plane="coronal" />}
+          {activeTab === 'info' && <ImageMetadataPanel />}
+        </div>
+      </div>
+    );
+  }
+
+  // ── DESKTOP 2x2 GRID LAYOUT ────────────────────────────────────────────────
   return (
     <div
       id="mpr-workspace"

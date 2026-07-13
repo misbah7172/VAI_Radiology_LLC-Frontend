@@ -113,13 +113,75 @@ export default function ViewerPanel({ plane }: Props) {
       {/* Top toolbar */}
       <ViewerTopToolbar plane={plane} />
 
-      {/* Canvas area */}
+      {/* Canvas area OR empty state */}
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden', minHeight: 0 }}>
-        <ViewerCanvas
-          plane={plane}
-          canvasRef={canvasRef}
-          onImgSizeChange={handleImgSizeChange}
-        />
+
+        {/* ── Empty state when no series is loaded ── */}
+        {!hasSeries && !isDragOver && (
+          <div style={{
+            position: 'absolute', inset: 0, zIndex: 10,
+            display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center',
+            gap: '12px', padding: '20px', textAlign: 'center',
+            background: 'radial-gradient(ellipse at center, #0d0d14 0%, #08080c 100%)',
+          }}>
+            {/* Plane icon ring */}
+            <div style={{
+              width: '64px', height: '64px', borderRadius: '50%',
+              background: `radial-gradient(circle, ${planeColor}18, transparent 70%)`,
+              border: `1.5px dashed ${planeColor}44`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '26px',
+              animation: 'pulse 2.5s ease-in-out infinite',
+            }}>
+              {plane === 'axial' ? '🔵' : plane === 'sagittal' ? '🟢' : '🟠'}
+            </div>
+
+            {/* Plane title */}
+            <div>
+              <p style={{
+                margin: 0, fontSize: '16px', fontWeight: 700,
+                color: planeColor, letterSpacing: '0.04em',
+              }}>
+                {planeLabel}
+              </p>
+              <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#3a3a52', lineHeight: 1.5 }}>
+                {plane === 'axial'
+                  ? 'Horizontal cross-sections · top-down view'
+                  : plane === 'sagittal'
+                  ? 'Vertical left-right slices · side view'
+                  : 'Vertical front-back slices · front view'}
+              </p>
+            </div>
+
+            {/* Drag instruction */}
+            <div style={{
+              border: `1px dashed ${planeColor}33`,
+              borderRadius: '10px',
+              padding: '12px 18px',
+              maxWidth: '200px',
+            }}>
+              <p style={{ margin: 0, fontSize: '11px', color: '#4a4a62', lineHeight: 1.6 }}>
+                <span style={{ display: 'block', fontSize: '18px', marginBottom: '6px' }}>📂</span>
+                Drag an image set from the{' '}
+                <span style={{ color: planeColor, fontWeight: 600 }}>left sidebar</span>
+                {' '}and drop it here
+              </p>
+            </div>
+
+            <p style={{ margin: 0, fontSize: '10px', color: '#2a2a3a' }}>
+              or import new files with the Import button above
+            </p>
+          </div>
+        )}
+
+        {hasSeries && (
+          <ViewerCanvas
+            plane={plane}
+            canvasRef={canvasRef}
+            onImgSizeChange={handleImgSizeChange}
+          />
+        )}
 
         {/* Drag-over drop target overlay */}
         {isDragOver && (

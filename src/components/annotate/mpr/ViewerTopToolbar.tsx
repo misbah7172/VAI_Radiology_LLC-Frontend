@@ -1,6 +1,7 @@
 'use client';
 
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
 import { useMPRStore, MPR_PRESET_CLASSES } from '@/stores/mprStore';
 import { WINDOW_PRESETS, PLANE_LABELS, PLANE_COLORS } from '@/types/mpr';
 import type { MPRPlane } from '@/types/mpr';
@@ -10,6 +11,10 @@ interface Props {
 }
 
 export default function ViewerTopToolbar({ plane }: Props) {
+  const [
+    controlsOpen, setControlsOpen,
+  ] = useState(false);
+
   const {
     series, viewers,
     setSlice, deltaSlice,
@@ -96,8 +101,54 @@ export default function ViewerTopToolbar({ plane }: Props) {
         >
           <ChevronRight style={{ width: '14px', height: '14px' }} />
         </button>
+
+        {/* Controls toggle */}
+        <button
+          id={`${plane}-controls-toggle`}
+          onClick={() => setControlsOpen((v) => !v)}
+          title={controlsOpen ? 'Collapse controls' : 'Expand controls'}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: '26px', height: '26px', borderRadius: '5px',
+            background: controlsOpen ? `${planeColor}22` : 'rgba(255,255,255,0.04)',
+            border: `1px solid ${controlsOpen ? planeColor + '55' : '#232332'}`,
+            color: controlsOpen ? planeColor : '#3d3d55',
+            cursor: 'pointer', transition: 'all 0.15s', flexShrink: 0,
+          }}
+        >
+          {controlsOpen
+            ? <ChevronUp style={{ width: '12px', height: '12px' }} />
+            : <ChevronDown style={{ width: '12px', height: '12px' }} />}
+        </button>
       </div>
 
+      {/* Compact summary when collapsed (only if series loaded) */}
+      {!controlsOpen && totalSlices > 0 && (
+        <div style={{
+          padding: '3px 12px 5px',
+          display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap',
+          borderTop: '1px solid #131320',
+        }}>
+          <span style={{
+            fontSize: '10px', color: `${planeColor}aa`,
+            display: 'inline-flex', alignItems: 'center', gap: '3px',
+          }}>
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: planeColor, display: 'inline-block' }} />
+            {selectedClass}
+          </span>
+          {v.applyWindow && (
+            <span style={{ fontSize: '10px', color: '#a78bfa' }}>CT&nbsp;Window&nbsp;ON</span>
+          )}
+          <span style={{ fontSize: '10px', color: '#232332', marginLeft: 'auto', cursor: 'pointer' }}
+            onClick={() => setControlsOpen(true)}>
+            tap to expand
+          </span>
+        </div>
+      )}
+
+      {/* Expanded controls */}
+      {controlsOpen && (
+        <>
       {/* Row 2: Class + checkboxes + window preset */}
       <div style={{
         display: 'flex', alignItems: 'center', flexWrap: 'wrap',
@@ -211,6 +262,8 @@ export default function ViewerTopToolbar({ plane }: Props) {
             }}
           />
         </div>
+      )}
+        </>
       )}
     </div>
   );

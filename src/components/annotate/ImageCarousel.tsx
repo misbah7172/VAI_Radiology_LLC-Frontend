@@ -61,6 +61,9 @@ export default function ImageCarousel() {
   // ── Drag events ────────────────────────────────────────────────────────────
   const handleDragStart = (e: React.DragEvent, setId: number) => {
     e.dataTransfer.setData('text/plain', String(setId));
+    // Also tag with a custom type so the window-level file-drop overlay
+    // in ImageUploader knows this is a sidebar card, not an OS file drag.
+    e.dataTransfer.setData('application/x-vai-set-id', String(setId));
     e.dataTransfer.effectAllowed = 'copy';
     setDraggedId(setId);
   };

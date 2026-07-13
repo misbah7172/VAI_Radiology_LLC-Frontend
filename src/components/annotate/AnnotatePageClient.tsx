@@ -1,13 +1,17 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { HelpCircle, PanelLeft, PanelLeftClose } from 'lucide-react';
 import { useAnnotationStore } from '@/stores/annotationStore';
 import ImageUploader from './ImageUploader';
 import ImageCarousel from './ImageCarousel';
 import MPRWorkspace from './mpr/MPRWorkspace';
+import UserGuideModal from './UserGuideModal';
 
 export default function AnnotatePageClient() {
   const { fetchSets, imageSets, isLoading } = useAnnotationStore();
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   useEffect(() => {
     fetchSets();
@@ -46,8 +50,46 @@ export default function AnnotatePageClient() {
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          {/* Sidebar toggle (visible on all sizes) */}
+          <button
+            id="sidebar-toggle"
+            onClick={() => setSidebarOpen((v) => !v)}
+            title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: '36px', height: '36px', borderRadius: '8px',
+              background: sidebarOpen ? 'rgba(124,58,237,0.15)' : 'rgba(255,255,255,0.05)',
+              border: sidebarOpen ? '1px solid rgba(124,58,237,0.4)' : '1px solid #232332',
+              color: sidebarOpen ? '#a78bfa' : '#63637e',
+              cursor: 'pointer', transition: 'all 0.2s',
+            }}
+          >
+            {sidebarOpen
+              ? <PanelLeftClose style={{ width: '16px', height: '16px' }} />
+              : <PanelLeft style={{ width: '16px', height: '16px' }} />}
+          </button>
+
           <ImageUploader />
+
+          {/* Help button */}
+          <button
+            id="open-user-guide"
+            onClick={() => setGuideOpen(true)}
+            title="Open User Guide"
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: '36px', height: '36px', borderRadius: '8px',
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid #232332',
+              color: '#63637e',
+              cursor: 'pointer', transition: 'all 0.2s',
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(124,58,237,0.15)'; (e.currentTarget as HTMLElement).style.color = '#a78bfa'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(124,58,237,0.4)'; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(255,255,255,0.04)'; (e.currentTarget as HTMLElement).style.color = '#63637e'; (e.currentTarget as HTMLElement).style.borderColor = '#232332'; }}
+          >
+            <HelpCircle style={{ width: '16px', height: '16px' }} />
+          </button>
         </div>
       </div>
 
@@ -72,13 +114,14 @@ export default function AnnotatePageClient() {
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden', minHeight: 0 }}>
           {/* Left sidebar — image sets */}
           <div style={{
-            width: '190px',
+            width: sidebarOpen ? '190px' : '0px',
             flexShrink: 0,
             height: '100%',
             overflow: 'hidden',
-            borderRight: '1px solid #1a1a26',
+            borderRight: sidebarOpen ? '1px solid #1a1a26' : 'none',
             display: 'flex',
             flexDirection: 'column',
+            transition: 'width 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
           }}>
             {/* Sidebar header */}
             <div style={{
@@ -95,7 +138,7 @@ export default function AnnotatePageClient() {
                 Image Sets
               </p>
               <p style={{ fontSize: '8px', color: '#2a2a3a', margin: '3px 0 0' }}>
-                Drag a set → Axial or Sagittal panel
+                Drag a set → any viewer panel
               </p>
             </div>
 
@@ -124,6 +167,9 @@ export default function AnnotatePageClient() {
           </div>
         </div>
       )}
+      {/* ── User Guide Modal ───────────────────────────────────────────────────── */}
+      <UserGuideModal isOpen={guideOpen} onClose={() => setGuideOpen(false)} />
     </div>
   );
 }
+

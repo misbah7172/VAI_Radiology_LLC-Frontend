@@ -19,17 +19,19 @@ function preloadHTMLImage(url: string): Promise<HTMLImageElement> {
   if (HTML_IMG_CACHE.has(url)) return Promise.resolve(HTML_IMG_CACHE.get(url)!);
   return new Promise((resolve, reject) => {
     const img = new window.Image();
-    // Allow cross-origin if served from a different origin
+    // Use crossOrigin='anonymous' so canvas.getImageData() works for CT windowing.
+    // Our backend has CORS_ALLOW_ALL_ORIGINS=True so this always succeeds without credentials.
     img.crossOrigin = 'anonymous';
     img.onload = () => {
       HTML_IMG_CACHE.set(url, img);
       resolve(img);
     };
     img.onerror = () => {
-      // Retry without crossOrigin (some servers don't set CORS headers on media)
+      // Fallback: retry without crossOrigin (works for display, but CT windowing
+      // will be skipped because canvas would be tainted for getImageData).
       const img2 = new window.Image();
       img2.onload = () => { HTML_IMG_CACHE.set(url, img2); resolve(img2); };
-      img2.onerror = reject;
+      img2.onerror = () => reject(new Error(`Failed to load image: ${url}`));
       img2.src = url;
     };
     img.src = url;
@@ -41,19 +43,25 @@ function preloadHTMLImage(url: string): Promise<HTMLImageElement> {
 function applyWindowingToImg(
   img: HTMLImageElement,
   lut: Uint8Array
-): HTMLCanvasElement {
-  const w = img.naturalWidth;
-  const h = img.naturalHeight;
-  const tmp = document.createElement('canvas');
-  tmp.width = w;
-  tmp.height = h;
-  const ctx = tmp.getContext('2d')!;
-  ctx.drawImage(img, 0, 0);
-  const imageData = ctx.getImageData(0, 0, w, h);
-  applyLUT(imageData, lut);
-  ctx.putImageData(imageData, 0, 0);
-  return tmp;
+): HTMLCanvasElement | null {
+  try {
+    const w = img.naturalWidth;
+    const h = img.naturalHeight;
+    const tmp = document.createElement('canvas');
+    tmp.width = w;
+    tmp.height = h;
+    const ctx = tmp.getContext('2d')!;
+    ctx.drawImage(img, 0, 0);
+    const imageData = ctx.getImageData(0, 0, w, h);
+    applyLUT(imageData, lut);
+    ctx.putImageData(imageData, 0, 0);
+    return tmp;
+  } catch (err) {
+    console.error('Failed to apply CT windowing (potential CORS/taint issue):', err);
+    return null;
+  }
 }
+
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 interface Props {
@@ -182,7 +190,11 @@ export default function ViewerCanvas({ plane, onImgSizeChange, canvasRef }: Prop
     if (v.applyWindow) {
       // Apply windowing via hidden canvas pixel manipulation
       const windowedCanvas = applyWindowingToImg(currentImg, lut);
-      ctx.drawImage(windowedCanvas, drawX, drawY, drawW, drawH);
+      if (windowedCanvas) {
+        ctx.drawImage(windowedCanvas, drawX, drawY, drawW, drawH);
+      } else {
+        ctx.drawImage(currentImg, drawX, drawY, drawW, drawH);
+      }
     } else {
       ctx.drawImage(currentImg, drawX, drawY, drawW, drawH);
     }
@@ -376,7 +388,10 @@ export default function ViewerCanvas({ plane, onImgSizeChange, canvasRef }: Prop
     <div
       ref={containerRef}
       style={{
-        position: 'relative', flex: 1, overflow: 'hidden',
+        width: '100%',
+        height: '100%',
+        position: 'relative',
+        overflow: 'hidden',
         backgroundColor: '#030303',
       }}
     >

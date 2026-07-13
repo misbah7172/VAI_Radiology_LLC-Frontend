@@ -54,16 +54,27 @@ api.interceptors.response.use(
   }
 );
 
-/**
- * Utility to format an absolute image URL into a Next.js optimized image route.
- * Keeps blob URLs, data URIs, and already optimized paths unchanged.
- */
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
 export function getOptimizedImageUrl(url: string, width = 1080, quality = 75): string {
+  // Suppress unused-vars warnings — width/quality are intentionally kept as
+  // named params for API compatibility but we bypass Next.js image optimization.
+  if (width && quality) { /* intentional no-op */ }
+
   if (!url) return '';
-  if (url.startsWith('blob:') || url.startsWith('data:') || url.startsWith('/_next/')) {
+
+  // Already absolute (from upload response when request context is present)
+  if (url.startsWith('http://') || url.startsWith('https://')) {
     return url;
   }
-  return `/_next/image?url=${encodeURIComponent(url)}&w=${width}&q=${quality}`;
+
+  // Relative URL (e.g. /media/annotations/images/...) — prepend backend base
+  // This happens when ImageSerializer is nested without request context.
+  if (url.startsWith('/')) {
+    return `${API_BASE}${url}`;
+  }
+
+  return url;
 }
 
 export default api;
